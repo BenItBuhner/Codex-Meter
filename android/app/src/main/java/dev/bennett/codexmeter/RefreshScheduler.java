@@ -17,10 +17,6 @@ public final class RefreshScheduler {
     private static final int SHORT_JOB_ID_A = 73103;
     private static final int SHORT_JOB_ID_B = 73104;
     private static final int REFILL_CHECK_JOB_ID = 73105;
-    private static final int USER_REFRESH_JOB_ID = 73106;
-    /** The user tapped Refresh outside the app: fetch one provider now, however fresh it is. */
-    static final String REASON_USER_REFRESH = "user_refresh";
-    static final String EXTRA_PROVIDER = "provider";
     /** A second look at a reading that showed a limit refilled early (see {@link RefillGuard}). */
     static final String REASON_REFILL_CHECK = "refill_check";
 
@@ -164,48 +160,6 @@ public final class RefreshScheduler {
     }
 
     /**
-     * Fetches {@code provider}'s usage right away for a Refresh the user tapped outside the
-     * app (the live monitor's button). Unlike {@link #scheduleImmediate}, which skips any
-     * provider fetched in the last five minutes, this always asks the service, as the app's
-     * own refresh does. It is an expedited job where Android has them, so it runs within
-     * seconds with the app in the background or under battery restrictions, and it has no
-     * network constraint, so with no connection it fails at once instead of waiting.
-     */
-    static boolean scheduleUserRefresh(Context context, UsageProvider provider) {
-        Context app = appContext(context);
-        if (app == null || provider == null) return false;
-        if (!SecureTokenStore.isSignedIn(app, provider)) return scheduleImmediate(app);
-        DiagnosticLog.info(app, "scheduler", "user_refresh_requested", "provider", provider.id);
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
-            try {
-                if (submit(app, userRefreshJob(app, provider).setExpedited(true).build())) {
-                    return true;
-                }
-            } catch (RuntimeException e) {
-                // Out of expedited quota: fall through to a regular job.
-                DiagnosticLog.warn(app, "scheduler", "user_refresh_expedited_refused",
-                        "error", e.getClass().getSimpleName());
-            }
-        }
-        try {
-            return submit(app, userRefreshJob(app, provider)
-                    .setMinimumLatency(0L).setOverrideDeadline(5000L).build());
-        } catch (RuntimeException e) {
-            return failed(app, e);
-        }
-    }
-
-    private static JobInfo.Builder userRefreshJob(Context app, UsageProvider provider) {
-        PersistableBundle extras = new PersistableBundle();
-        extras.putString("reason", REASON_USER_REFRESH);
-        extras.putString(EXTRA_PROVIDER, provider.id);
-        return new JobInfo.Builder(USER_REFRESH_JOB_ID,
-                new ComponentName(app, UsageRefreshJobService.class))
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
-                .setExtras(extras);
-    }
-
-    /**
      * Asks every provider again in {@link RefillGuard#CONFIRM_DELAY_MS}, to confirm or drop a held
      * refill. A check already waiting is kept, so repeated refreshes do not push it back.
      */
@@ -256,7 +210,6 @@ public final class RefreshScheduler {
                     jobSchedulerScheduler.cancel(SHORT_JOB_ID_A);
                     jobSchedulerScheduler.cancel(SHORT_JOB_ID_B);
                     jobSchedulerScheduler.cancel(REFILL_CHECK_JOB_ID);
-                    jobSchedulerScheduler.cancel(USER_REFRESH_JOB_ID);
                     AppPreferences.setSchedulerError(contextAppContext, "");
                     DiagnosticLog.info(contextAppContext, "scheduler",
                             "all_refresh_jobs_cancelled");

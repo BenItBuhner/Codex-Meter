@@ -90,23 +90,6 @@ public final class UsageRefreshJobService extends JobService {
                 try {
                     Context app = UsageRefreshJobService.this.getApplicationContext();
                     // Claude never throws here; it paces itself to avoid its rate limit.
-                    if (RefreshScheduler.REASON_USER_REFRESH.equals(this.reason)) {
-                        runUserRefresh(app, this.params.getExtras() == null ? null
-                                : UsageProvider.fromId(this.params.getExtras().getString(
-                                        RefreshScheduler.EXTRA_PROVIDER, "")));
-                        WidgetRenderer.updateAll(app);
-                        DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
-                                "refresh_job_succeeded",
-                                "job_id", this.params.getJobId(),
-                                "reason", this.reason,
-                                "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
-                        UsageRefreshJobService.this.active.remove(
-                                Integer.valueOf(this.params.getJobId()), this);
-                        if (!this.stopped) {
-                            UsageRefreshJobService.this.jobFinished(this.params, false);
-                        }
-                        return;
-                    }
                     if (RefreshScheduler.REASON_REFILL_CHECK.equals(this.reason)) {
                         // Only the providers holding a reading that showed an early refill.
                         RefillHold.recheckHeld(app);
@@ -174,33 +157,6 @@ public final class UsageRefreshJobService extends JobService {
                 }
                 throw th;
             }
-        }
-    }
-
-    /**
-     * The live monitor's Refresh: fetches the provider it shows, whatever the age of its
-     * reading, then puts the button back. Failures are logged and shown where the app shows
-     * that provider's errors; they never count against the background schedule.
-     */
-    private static void runUserRefresh(Context app, UsageProvider target) {
-        try {
-            if (target == UsageProvider.CODEX) {
-                RefreshScheduler.scheduleAtNextReset(app, UsageApi.refreshAndCache(app));
-                AppPreferences.recordRefreshSuccess(app);
-            } else if (target == UsageProvider.CLAUDE_CODE) {
-                ClaudeUsageApi.refreshAndCache(app);
-            } else if (target == UsageProvider.CURSOR) {
-                CursorUsageApi.refreshAndCache(app);
-            } else if (target != null && ProviderUsageApi.handles(target)) {
-                ProviderUsageApi.refreshAndCache(app, target);
-            }
-        } catch (Exception e) {
-            DiagnosticLog.warn(app, "scheduler", "user_refresh_failed",
-                    "provider", target == null ? "" : target.id,
-                    "error", e.getClass().getSimpleName());
-            if (target == UsageProvider.CODEX) AppPreferences.setLastError(app, safeMessage(e));
-        } finally {
-            NowBarManager.refreshFinished(app);
         }
     }
 

@@ -14,7 +14,7 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
         } else if (NowBarManager.ACTION_END.equals(action)) {
             NowBarManager.stop(context, false);
         } else if (NowBarManager.ACTION_REFRESH.equals(action)) {
-            NowBarManager.refreshRequested(context);
+            RefreshScheduler.scheduleImmediate(context);
         }
     }
 }
