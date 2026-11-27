@@ -37,7 +37,7 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         Context c = activity();
         GlassModel.Page page = new GlassModel.Page(GlassScreens.PREFIX + "history:" + provider.id,
                 provider == UsageProvider.CODEX ? "Usage history" : provider.displayName + " history");
-        page.actions.add(new GlassModel.Action("Customize", "sliders", false, this::customize));
+        page.actions.add(highlightsMenu());
         UsageSnapshot snapshot = ProviderPreferences.loadSnapshot(c, provider);
         UsageHistory five = ProviderPreferences.loadUsageHistory(c, provider, UsageHistory.FIVE_HOUR);
         UsageHistory weekly = ProviderPreferences.loadUsageHistory(c, provider, UsageHistory.WEEKLY);
@@ -107,6 +107,27 @@ final class GlassHistoryScreen extends GlassScreens.Screen {
         clear.rows.add(button);
         page.sections.add(clear);
         return page;
+    }
+
+    /**
+     * The bar's highlights button: a pull-down menu with a toggle per highlight (a checkmark while
+     * it shows). Each tap flips it on the page at once and the menu stays open for the next one.
+     * The Duo rail can't open a menu, so its button keeps the sheet.
+     */
+    private GlassModel.Action highlightsMenu() {
+        GlassModel.Action action = new GlassModel.Action("Highlights", "sliders", false, this::customize);
+        action.menu = new ArrayList<>();
+        action.menu.add(GlassModel.MenuItem.header("Show on this page"));
+        for (String key : HistorySections.all()) {
+            action.menu.add(new GlassModel.MenuItem(HistorySections.label(key), null, visible(key), () -> {
+                // read the setting now, not when the menu was built, so a second tap turns it back
+                boolean on = !visible(key);
+                DiagnosticLog.info(activity(), "user", "history_highlight", "key", key, "on", on);
+                AppPreferences.setHistorySectionVisible(activity(), key, on);
+                changed();
+            }));
+        }
+        return action;
     }
 
     private void customize() {

@@ -141,11 +141,49 @@ public final class GlassModel {
         public final boolean prominent;
         public final Runnable onPress;
 
+        /**
+         * A pull-down menu instead (Apple's term: a button that opens a menu of its items with
+         * Liquid Glass's morph out of the button), or null for a plain button. {@link #onPress} is
+         * still the fallback where a menu can't open (the Duo rail's column).
+         */
+        public List<MenuItem> menu;
+
         public Action(String label, String icon, boolean prominent, Runnable onPress) {
             this.label = label;
             this.icon = icon;
             this.prominent = prominent;
             this.onPress = onPress;
+        }
+    }
+
+    /**
+     * A pull-down menu's item. With {@link #checked} set it is a toggle (SwiftUI's Toggle in a
+     * Menu): a checkmark shows while it's on, and the menu stays open so several can flip in a row.
+     */
+    public static final class MenuItem {
+        public final String label;
+        public final String icon;
+        /** null: a plain action; true / false: a toggle and its state */
+        public final Boolean checked;
+        public final Runnable onSelect;
+        /** a section title over the items after it (not tappable) */
+        public final boolean header;
+
+        public MenuItem(String label, String icon, Boolean checked, Runnable onSelect) {
+            this(label, icon, checked, onSelect, false);
+        }
+
+        private MenuItem(String label, String icon, Boolean checked, Runnable onSelect, boolean header) {
+            this.label = label;
+            this.icon = icon;
+            this.checked = checked;
+            this.onSelect = onSelect;
+            this.header = header;
+        }
+
+        /** A section title in the menu. */
+        public static MenuItem header(String label) {
+            return new MenuItem(label, null, null, null, true);
         }
     }
 

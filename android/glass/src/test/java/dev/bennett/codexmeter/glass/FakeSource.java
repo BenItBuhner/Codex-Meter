@@ -36,6 +36,10 @@ final class FakeSource implements GlassSource {
     boolean shortDashboard;
     /** only the Usage history card, first on the dashboard */
     boolean historyFirst;
+    static final String[] HIGHLIGHTS = {"How to read the charts", "Previous window list", "Pace vs. typical",
+        "Projected exhaustion", "Average completed window", "Peak burn rate", "Value estimates ($)"};
+    /** the history page's highlights turned off in its menu */
+    final java.util.Set<String> hiddenHighlights = new java.util.LinkedHashSet<>();
 
     FakeSource() {
         for (String id : new String[] {"codex", "claude_code", "cursor", "copilot"}) {
@@ -619,7 +623,19 @@ final class FakeSource implements GlassSource {
 
     private GlassModel.Page history() {
         GlassModel.Page p = new GlassModel.Page("x:history", "Usage history");
-        p.actions.add(new GlassModel.Action("Customize", "sliders", false, () -> { }));
+        // the highlights pull-down menu, like GlassHistoryScreen's: a toggle per highlight
+        GlassModel.Action highlights = new GlassModel.Action("Highlights", "sliders", false, () -> { });
+        highlights.menu = new ArrayList<>();
+        highlights.menu.add(GlassModel.MenuItem.header("Show on this page"));
+        for (String label : HIGHLIGHTS) {
+            highlights.menu.add(new GlassModel.MenuItem(label, null, !hiddenHighlights.contains(label), () -> {
+                if (!hiddenHighlights.remove(label)) {
+                    hiddenHighlights.add(label);
+                }
+                changed();
+            }));
+        }
+        p.actions.add(highlights);
         GlassModel.Section pick = new GlassModel.Section(null);
         GlassModel.Row seg = new GlassModel.Row(GlassModel.Row.Kind.SEGMENTED, "window");
         seg.entries = new String[] {"Weekly", "5-hour"};
