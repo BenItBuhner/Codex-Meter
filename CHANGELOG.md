@@ -8,6 +8,10 @@
 - **No update notification while you're looking at the update.** A check that finds an update while the app is open on Priority, Settings → Updates or the update page no longer also posts a notification about it, and that version isn't announced later either. Android, Windows, Linux, macOS.
 - **Faster desktop updates.** The Windows installer no longer waits on Windows' Restart Manager to check every file in the app's folder or to close Codex Meter, which was already quitting on its own. On Windows and Linux the checksum file downloads alongside the update, progress redraws only once per percent, and a verified download from an earlier try is used again instead of downloading it twice. A Linux AppImage update moves the download into place instead of copying it. The Mac downloads with the system's download task instead of reading the file a byte at a time. Windows, Linux, macOS.
 
+### Fixed
+
+- **OpenCode Free's card fits in Liquid Glass.** The Daily free limit card had a fixed height, so its three-line explanation was cut off and the title touched the top edge. The card now grows with its text. Liquid Glass, Android.
+
 ## 2.9.0-alpha.37 — 2026-11-26
 
 ### Added
