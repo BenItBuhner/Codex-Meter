@@ -194,7 +194,7 @@ struct UsageHistoryView: View {
                 } label: {
                     Label("Highlights", systemImage: "slider.horizontal.3")
                 }
-                .menuActionDismissBehavior(.disabled)
+                .keepsMenuOpen()
             }
         }
         .confirmationDialog(
@@ -756,4 +756,16 @@ private struct UsageChartPoint: Identifiable {
     let progress: Double
     let usedPercent: Double
     let series: String
+}
+
+private extension View {
+    /// Keeps a menu open after a pick (iOS only; the Mac's menus always close).
+    @ViewBuilder
+    func keepsMenuOpen() -> some View {
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        self
+        #else
+        menuActionDismissBehavior(.disabled)
+        #endif
+    }
 }
