@@ -49,6 +49,10 @@ public final class NowBarManager {
     private static final String KEY_POSTED_MODE = "posted_mode";
     private static final String KEY_POSTED_PROMOTION_ALLOWED = "posted_promotion_allowed";
     private static final String KEY_PREVIEW = "preview";
+    /** Until when the Refresh button reads "Refreshing…" after a tap. */
+    private static final String KEY_REFRESHING_UNTIL = "refreshing_until";
+    /** A refresh that never reports back stops showing as in progress after this long. */
+    private static final long REFRESHING_TIMEOUT_MS = 45_000L;
     private static final String KEY_START_REASON = "start_reason";
     private static final String KEY_UNTIL = "until";
     private static final String START_ACCELERATED = "accelerated";
@@ -135,6 +139,36 @@ public final class NowBarManager {
         }
         stop(context, false);
         return false;
+    }
+
+    /**
+     * The notification's Refresh button: shows "Refreshing…" on the button straight away, so
+     * the tap is visibly taken, and fetches the provider the monitor shows. The button goes
+     * back once that fetch ends ({@link #refreshFinished}), with or without new numbers.
+     */
+    public static synchronized void refreshRequested(Context context) {
+        if (context == null) return;
+        if (!hasStoredActiveState(context) || isPreview(context)) {
+            RefreshScheduler.scheduleImmediate(context);
+            return;
+        }
+        UsageProvider provider = activeProvider(context);
+        DiagnosticLog.info(context, "now_bar", "refresh_tapped", "provider", provider.id);
+        state(context).edit().putLong(KEY_REFRESHING_UNTIL,
+                System.currentTimeMillis() + REFRESHING_TIMEOUT_MS).apply();
+        repostActive(context);
+        if (!RefreshScheduler.scheduleUserRefresh(context, provider)) refreshFinished(context);
+    }
+
+    /** The fetch a Refresh tap started has ended: puts the button back. */
+    public static synchronized void refreshFinished(Context context) {
+        if (context == null || state(context).getLong(KEY_REFRESHING_UNTIL, 0L) == 0L) return;
+        state(context).edit().remove(KEY_REFRESHING_UNTIL).apply();
+        if (hasStoredActiveState(context)) repostActive(context);
+    }
+
+    private static boolean isRefreshing(Context context, long now) {
+        return state(context).getLong(KEY_REFRESHING_UNTIL, 0L) > now;
     }
 
     /** Codex usage refreshed. */
@@ -387,7 +421,7 @@ public final class NowBarManager {
         } else {
             UsageSnapshot snapshot = loadActiveSnapshot(context);
             if (START_ACCELERATED.equals(sessionStartReason(context))) {
-                onUsageUpdated(context, snapshot);
+                onProviderUsageUpdated(context, activeProvider(context), snapshot);
                 return isActive(context);
             }
             posted = snapshot != null && (snapshot.fiveHour != null || snapshot.longWindow() != null)
@@ -682,8 +716,9 @@ public final class NowBarManager {
                 .addAction(new Notification.Action.Builder(
                         stopActionIcon, "Stop", stopIntent).build());
         if (!preview) {
-            builder.addAction(new Notification.Action.Builder(
-                    refreshActionIcon, "Refresh", refreshIntent).build());
+            builder.addAction(new Notification.Action.Builder(refreshActionIcon,
+                    isRefreshing(context, now) ? "Refreshing…" : "Refresh",
+                    refreshIntent).build());
         }
         if (provider != UsageProvider.CODEX) {
             // Other providers show their own mark, flattened to a white bitmap.
@@ -738,6 +773,7 @@ public final class NowBarManager {
                 + " allowed=" + canPostPromotedNotifications(context)
                 + " legacyColorizedFallback=" + legacyColorizedFallback
                 + " preview=" + preview + " remaining=" + remaining
+                + " refreshing=" + isRefreshing(context, now)
                 + " focusCritical=" + focusCritical);
         DiagnosticLog.info(context, "now_bar", "notification_posting",
                 "display_mode", displayMode,
