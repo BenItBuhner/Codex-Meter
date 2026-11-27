@@ -40,6 +40,9 @@ jobs:
     name: Shared core tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
     defaults:
       run:
         working-directory: windows
@@ -47,16 +50,35 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.release_tag || '' }}
+      # A release tag's commit already passed the CI gate on alpha (core tests, the Windows
+      # build and its start-up budgets), so release runs skip the tests and keep the packaging
+      # and installer checks.
+      - name: Decide which checks this run repeats
+        id: checks
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -x ../.github/scripts/release-tested.sh ]]; then
+            ../.github/scripts/release-tested.sh ci.yml
+          else
+            echo "full=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-dotnet@v6
+        if: steps.checks.outputs.full == 'true'
         with:
           dotnet-version: '10.0.x'
       - name: Test CodexMeter.Core
+        if: steps.checks.outputs.full == 'true'
         run: dotnet test tests/CodexMeter.Core.Tests --logger "console;verbosity=normal"
 
   app:
     name: Build, UI-test and screenshot the app
     runs-on: windows-2025
     timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
     defaults:
       run:
         shell: pwsh
@@ -69,7 +91,20 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Decide which checks this run repeats
+        id: checks
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -x ../.github/scripts/release-tested.sh ]]; then
+            ../.github/scripts/release-tested.sh ci.yml
+          else
+            echo "full=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Test CodexMeter.Core on Windows
+        if: steps.checks.outputs.full == 'true'
         run: dotnet test tests/CodexMeter.Core.Tests
 
       - name: Publish x64 and ARM64
@@ -90,6 +125,7 @@ jobs:
           Get-ChildItem out/CodexMeter-win-x64 -Filter CodexMeter.exe | Format-List Name, Length
 
       - name: Use a 1080p desktop
+        if: steps.checks.outputs.full == 'true'
         continue-on-error: true
         run: |
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
@@ -97,6 +133,7 @@ jobs:
           [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 
       - name: Capture screenshots
+        if: steps.checks.outputs.full == 'true'
         run: |
           $shots = Join-Path $PWD 'out/screenshots'
           $p = Start-Process -FilePath out/CodexMeter-win-x64/CodexMeter.exe -ArgumentList '--screenshots', "`"$shots`"" -PassThru
@@ -109,6 +146,7 @@ jobs:
           if ((Get-ChildItem $shots -Filter '*.png').Count -lt 10) { throw 'Too few screenshots' }
 
       - name: UI automation tests
+        if: steps.checks.outputs.full == 'true'
         env:
           CODEXMETER_EXE: ${{ github.workspace }}\windows\out\CodexMeter-win-x64\CodexMeter.exe
         run: dotnet test tests/CodexMeter.App.UITests --logger "console;verbosity=normal" --logger "trx;LogFileName=ui-tests.trx" --results-directory out/test-results
@@ -147,10 +185,23 @@ jobs:
           }
           if (-not $iscc) { throw 'Inno Setup compiler not found' }
           $version = if ($env:RELEASE_TAG) { $env:RELEASE_TAG.TrimStart('v') } else { '0.0.0-ci' }
-          foreach ($arch in 'x64', 'arm64') {
-            & $iscc.FullName "/DAppVersion=$version" "/DArch=$arch" "/DSourceDir=$PWD\out\CodexMeter-win-$arch" "/DOutputDir=$PWD\out" "/DIconFile=$PWD\src\CodexMeter.App\Assets\AppIcon.ico" "$env:GITHUB_WORKSPACE\_workflow\windows\installer\CodexMeter.iss"
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Both installers compile at once (each is ~45 s of LZMA2 compression, which ran one
+          # after the other before); each one's output goes to its own log, shown after.
+          $jobs = foreach ($arch in 'x64', 'arm64') {
+            $argLine = "`"/DAppVersion=$version`" `"/DArch=$arch`" `"/DSourceDir=$PWD\out\CodexMeter-win-$arch`" `"/DOutputDir=$PWD\out`" `"/DIconFile=$PWD\src\CodexMeter.App\Assets\AppIcon.ico`" `"$env:GITHUB_WORKSPACE\_workflow\windows\installer\CodexMeter.iss`""
+            $p = Start-Process -FilePath $iscc.FullName -ArgumentList $argLine -NoNewWindow -PassThru `
+              -RedirectStandardOutput "out/iscc-$arch.log" -RedirectStandardError "out/iscc-$arch.err.log"
+            $null = $p.Handle  # keeps the exit code readable after exit
+            [pscustomobject]@{ Arch = $arch; Process = $p }
           }
+          $failed = $false
+          foreach ($job in $jobs) {
+            $job.Process.WaitForExit()
+            "--- Inno Setup ($($job.Arch))"
+            Get-Content "out/iscc-$($job.Arch).log", "out/iscc-$($job.Arch).err.log" -ErrorAction SilentlyContinue | Select-Object -Last 15
+            if ($job.Process.ExitCode -ne 0) { "::error::Inno Setup ($($job.Arch)) exited with $($job.Process.ExitCode)"; $failed = $true }
+          }
+          if ($failed) { exit 1 }
           Get-ChildItem out -Filter 'CodexMeter-Setup-*.exe' | Format-Table Name, Length
 
       - name: Install, launch and uninstall the x64 installer

@@ -42,12 +42,25 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
     defaults:
       run:
         shell: bash
         working-directory: linux
     steps:
       - uses: actions/checkout@v7
+
+      # A release tag's commit already passed the CI gate on alpha (core and Linux tests, the
+      # start-up budgets), so release runs skip the unit tests and screenshot run and keep the
+      # packaging checks: the .deb and the AppImage are still installed and run.
+      - name: Decide which checks this run repeats
+        id: checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: ../.github/scripts/release-tested.sh ci.yml
 
       - uses: actions/setup-dotnet@v6
         with:
@@ -61,6 +74,7 @@ jobs:
             xvfb xauth dbus dbus-x11 desktop-file-utils appstream file
 
       - name: Unit tests
+        if: steps.checks.outputs.full == 'true'
         run: dotnet test tests/CodexMeter.Linux.Tests --logger "console;verbosity=normal"
 
       - name: Validate desktop entry and AppStream metadata
@@ -79,7 +93,7 @@ jobs:
           echo "VERSION=$(cat out/publish-${{ matrix.arch }}/VERSION)" >> "$GITHUB_ENV"
 
       - name: Capture screenshots
-        if: matrix.arch == 'x64'
+        if: matrix.arch == 'x64' && steps.checks.outputs.full == 'true'
         env:
           GSK_RENDERER: cairo
           GTK_A11Y: none
@@ -96,19 +110,31 @@ jobs:
       - name: Build the .deb
         run: packaging/build-deb.sh ${{ matrix.arch }}
 
-      - name: Install the .deb and run it
+      # The installed .deb runs (~90 s) while the AppImage builds (~70-90 s).
+      - name: Install the .deb and run it, while the AppImage builds
         env:
           GSK_RENDERER: cairo
           GTK_A11Y: none
         run: |
-          sudo apt-get install -y ./out/codex-meter_*.deb
-          codex-meter --help
-          timeout 300 xvfb-run -a dbus-run-session -- codex-meter --screenshots "$PWD/out/deb-smoke"
-          test "$(ls out/deb-smoke/*.png | wc -l)" -ge 10
-          sudo apt-get remove -y codex-meter
-
-      - name: Build the AppImage
-        run: packaging/build-appimage.sh ${{ matrix.arch }}
+          (
+            set -euo pipefail
+            sudo apt-get install -y ./out/codex-meter_*.deb
+            codex-meter --help
+            timeout 300 xvfb-run -a dbus-run-session -- codex-meter --screenshots "$PWD/out/deb-smoke"
+            test "$(ls out/deb-smoke/*.png | wc -l)" -ge 10
+            sudo apt-get remove -y codex-meter
+          ) > "$RUNNER_TEMP/deb-smoke.log" 2>&1 &
+          deb=$!
+          appimage=0
+          packaging/build-appimage.sh ${{ matrix.arch }} || appimage=$?
+          deb_status=0
+          wait "$deb" || deb_status=$?
+          echo "::group::.deb install and run"
+          cat "$RUNNER_TEMP/deb-smoke.log"
+          echo "::endgroup::"
+          if (( deb_status != 0 )); then echo "::error::The installed .deb failed its run ($deb_status)"; fi
+          if (( appimage != 0 )); then echo "::error::The AppImage build failed ($appimage)"; fi
+          (( deb_status == 0 && appimage == 0 ))
 
       - name: Run the AppImage
         env:

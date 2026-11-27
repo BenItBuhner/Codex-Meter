@@ -62,6 +62,9 @@ jobs:
     if: ${{ !cancelled() && needs.gate-first.result != 'failure' }}
     runs-on: macos-26
     timeout-minutes: 75
+    permissions:
+      contents: read
+      actions: read
     defaults:
       run:
         working-directory: macos
@@ -70,6 +73,20 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.release_tag || '' }}
+
+      # A release tag's commit already passed the CI gate on alpha, which builds the Release Mac
+      # app and checks its start-up; this run then skips the Debug build, tests and gallery.
+      - name: Decide which checks this run repeats
+        id: checks
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -x ../.github/scripts/release-tested.sh ]]; then
+            ../.github/scripts/release-tested.sh ci.yml
+          else
+            echo "full=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Show Xcode version
         shell: bash
@@ -80,6 +97,7 @@ jobs:
 
       - name: Build app, widgets, and tests (Debug)
         id: build
+        if: steps.checks.outputs.full == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -91,6 +109,7 @@ jobs:
             $SIGNING_ARGS
 
       - name: Check app bundle contents
+        if: steps.checks.outputs.full == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -105,6 +124,7 @@ jobs:
 
       - name: Smoke-launch the app
         id: smoke
+        if: steps.checks.outputs.full == 'true'
         shell: bash
         run: ./ci/smoke-launch.sh "DerivedData/Build/Products/Debug/Codex Meter.app/Contents/MacOS/Codex Meter" smoke
 
@@ -118,7 +138,7 @@ jobs:
           retention-days: 7
 
       - name: Stop when the app does not settle
-        if: steps.smoke.outputs.healthy != 'true'
+        if: steps.checks.outputs.full == 'true' && steps.smoke.outputs.healthy != 'true'
         shell: bash
         run: |
           cat smoke/summary.txt
@@ -126,6 +146,7 @@ jobs:
           exit 1
 
       - name: Run unit and UI tests
+        if: steps.checks.outputs.full == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -164,7 +185,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload gallery
-        if: success() || failure()
+        if: (success() || failure()) && steps.gallery.outcome != 'skipped'
         uses: actions/upload-artifact@v7
         with:
           name: macos-demo-gallery
@@ -196,9 +217,33 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -derivedDataPath DerivedData \
+            COMPILER_INDEX_STORE_ENABLE=NO \
             $SIGNING_ARGS $version_args
           cd "DerivedData/Build/Products/Release"
           ditto -c -k --keepParent "Codex Meter.app" "$GITHUB_WORKSPACE/macos/CodexMeter-macOS-unsigned.zip"
+
+      - name: Check the Release app's bundle and launch it
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="DerivedData/Build/Products/Release/Codex Meter.app"
+          test -x "$APP/Contents/MacOS/Codex Meter"
+          test -d "$APP/Contents/PlugIns/CodexMeterMacWidgets.appex"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist"
+          codesign --verify --deep --strict "$APP"
+          # The app that ships has to start and stay up, in the offline demo (as perf-budgets.sh
+          # sets it up; the -ui-testing arguments are Debug-only).
+          defaults write com.bukovinafilip.CodexMeter codex-meter.session-mode-v1 demo
+          "$APP/Contents/MacOS/Codex Meter" >"$RUNNER_TEMP/release-launch.log" 2>&1 &
+          pid=$!
+          sleep 12
+          if ! kill -0 "$pid" 2>/dev/null; then
+            cat "$RUNNER_TEMP/release-launch.log"
+            echo "::error::The Release app exited within 12 seconds of launch"
+            exit 1
+          fi
+          kill "$pid"; wait "$pid" 2>/dev/null || true
+          echo "Release app OK"
 
       - name: Build the disk image
         shell: bash
@@ -241,7 +286,9 @@ jobs:
 
   release:
     name: Attach to the GitHub release
-    if: github.ref_type == 'tag' || inputs.release_tag != ''
+    # !cancelled(): mac-app's own dependency (gate-first) is skipped on tags, and a plain `if`
+    # would skip this job with it, so the Mac app never reached the release.
+    if: ${{ !cancelled() && needs.mac-app.result == 'success' && (github.ref_type == 'tag' || inputs.release_tag != '') }}
     needs: mac-app
     runs-on: ubuntu-latest
     permissions:

@@ -26,6 +26,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: read
+      actions: read
     outputs:
       version: ${{ steps.version.outputs.name }}
       prerelease: ${{ steps.version.outputs.prerelease }}
@@ -119,7 +123,18 @@ jobs:
           set -euo pipefail
           ./run-tests.sh
 
+      # A release tag's commit already passed this workflow and the CI gate (which lints with
+      # warnings as errors) on its alpha push, so the tag build doesn't lint it a third time.
+      - name: Decide which checks this run repeats
+        id: checks
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: ../.github/scripts/release-tested.sh ci.yml build-apk.yml
+
       - name: Run Android lint
+        if: steps.checks.outputs.full == 'true'
         shell: bash
         run: |
           set -euo pipefail
