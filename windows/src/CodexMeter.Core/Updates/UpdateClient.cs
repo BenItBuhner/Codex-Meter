@@ -198,7 +198,9 @@ public sealed class UpdateClient
 
     /// <summary>
     /// Downloads the release's build for this platform into <paramref name="directory"/> and keeps it
-    /// only if its size and SHA-256 match the release's checksum file.
+    /// only if its size and SHA-256 match the release's checksum file. The checksum file is fetched
+    /// alongside the build, and a verified copy already in <paramref name="directory"/> (an earlier
+    /// attempt, a retry after a failed install) is used again without downloading.
     /// </summary>
     public async Task<DownloadedUpdate> DownloadAsync(ReleaseInfo release, UpdateTarget target, string directory,
         IProgress<double>? progress = null, CancellationToken cancellationToken = default)
@@ -209,23 +211,22 @@ public sealed class UpdateClient
         if (!IsTrustedReleaseUrl(asset.Url) || !IsTrustedReleaseUrl(sums.Url))
             throw new UpdateException("The download isn't hosted on Codex Meter's GitHub releases, so it was skipped.");
 
-        string sumsText;
-        try
-        {
-            using var response = await downloads.GetAsync(sums.Url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-            if (!IsTrustedFinalUrl(response.RequestMessage?.RequestUri, download: true) || !response.IsSuccessStatusCode)
-                throw new UpdateException("Couldn't download the release's checksum file. Try again later.");
-            sumsText = Encoding.UTF8.GetString(await ReadCappedAsync(response.Content, MaxChecksumBytes, cancellationToken).ConfigureAwait(false));
-        }
-        catch (HttpRequestException error)
-        {
-            throw new UpdateException("Couldn't reach GitHub. Check your connection and try again.", error);
-        }
-        var expected = ReleaseIntegrity.ExpectedSha256(sumsText, target.ChecksumEntryName(release.Version));
-        if (expected.Length == 0) throw new UpdateException("The release's checksum file doesn't list this download, so it wasn't installed.");
+        // The checksum file is tiny: ask for it while the build downloads instead of before.
+        var expectedTask = ExpectedSha256Async(sums.Url, target.ChecksumEntryName(release.Version), cancellationToken);
+        _ = expectedTask.ContinueWith(t => _ = t.Exception, CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
 
         Directory.CreateDirectory(directory);
         var final = Path.Combine(directory, asset.Name);
+        if (File.Exists(final) && new FileInfo(final).Length == asset.Size)
+        {
+            var kept = await HashFileAsync(final, cancellationToken).ConfigureAwait(false);
+            if (Matches(kept, await expectedTask.ConfigureAwait(false)))
+            {
+                progress?.Report(1);
+                return new DownloadedUpdate(release, final, kept);
+            }
+        }
         var partial = final + ".partial";
         try
         {
@@ -236,9 +237,18 @@ public sealed class UpdateClient
                     throw new UpdateException("GitHub redirected the download somewhere unexpected, so it was stopped.");
                 if (!response.IsSuccessStatusCode) throw new UpdateException($"The download failed (HTTP {(int)response.StatusCode}). Try again later.");
                 await using var input = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                await using var output = new FileStream(partial, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-                var buffer = new byte[81920];
+                await using var output = new FileStream(partial, new FileStreamOptions
+                {
+                    Mode = FileMode.Create,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None,
+                    Options = FileOptions.Asynchronous,
+                    BufferSize = 0, // the chunks below are already large
+                    PreallocationSize = asset.Size,
+                });
+                var buffer = new byte[DownloadChunkBytes];
                 long total = 0;
+                var reported = -1;
                 int read;
                 while ((read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
                 {
@@ -246,12 +256,18 @@ public sealed class UpdateClient
                     if (total > asset.Size) throw new UpdateException("The download was larger than GitHub said, so it was discarded.");
                     hash.AppendData(buffer, 0, read);
                     await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                    progress?.Report((double)total / asset.Size);
+                    // Whole percents only: each report redraws Settings and the Priority card.
+                    var percent = asset.Size > 0 ? (int)(total * 100 / asset.Size) : 0;
+                    if (percent != reported)
+                    {
+                        reported = percent;
+                        progress?.Report((double)total / asset.Size);
+                    }
                 }
                 if (total != asset.Size) throw new UpdateException("The download was cut short. Try again.");
             }
             var actual = Convert.ToHexStringLower(hash.GetHashAndReset());
-            if (!CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(actual), Encoding.ASCII.GetBytes(expected)))
+            if (!Matches(actual, await expectedTask.ConfigureAwait(false)))
                 throw new UpdateException("The download didn't match its published SHA-256 checksum, so it was discarded.");
             File.Move(partial, final, overwrite: true);
             return new DownloadedUpdate(release, final, actual);
@@ -269,4 +285,36 @@ public sealed class UpdateClient
             try { if (File.Exists(partial)) File.Delete(partial); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
+
+    /// <summary>Big reads keep a fast connection busy with few system calls (Android reads 64 KB at a time).</summary>
+    public const int DownloadChunkBytes = 256 * 1024;
+
+    /// <summary>The SHA-256 the release's checksum file lists for <paramref name="entry"/>.</summary>
+    private async Task<string> ExpectedSha256Async(string url, string? entry, CancellationToken cancellationToken)
+    {
+        string sumsText;
+        try
+        {
+            using var response = await downloads.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            if (!IsTrustedFinalUrl(response.RequestMessage?.RequestUri, download: true) || !response.IsSuccessStatusCode)
+                throw new UpdateException("Couldn't download the release's checksum file. Try again later.");
+            sumsText = Encoding.UTF8.GetString(await ReadCappedAsync(response.Content, MaxChecksumBytes, cancellationToken).ConfigureAwait(false));
+        }
+        catch (HttpRequestException error)
+        {
+            throw new UpdateException("Couldn't reach GitHub. Check your connection and try again.", error);
+        }
+        var expected = ReleaseIntegrity.ExpectedSha256(sumsText, entry);
+        if (expected.Length == 0) throw new UpdateException("The release's checksum file doesn't list this download, so it wasn't installed.");
+        return expected;
+    }
+
+    private static async Task<string> HashFileAsync(string path, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, DownloadChunkBytes, useAsync: true);
+        return Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
+    }
+
+    private static bool Matches(string actual, string expected) =>
+        CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(actual), Encoding.ASCII.GetBytes(expected));
 }

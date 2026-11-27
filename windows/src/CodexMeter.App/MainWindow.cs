@@ -123,6 +123,22 @@ public sealed class MainWindow : Window
 
     public string CurrentTag => currentTag;
 
+    /// <summary>
+    /// True while the window is open on a page that shows the available update: Priority (its
+    /// update card) or Settings (Updates). The automatic check's notification stays quiet then.
+    /// </summary>
+    public bool ShowsUpdate => AppWindow.IsVisible
+        && AppWindow.Presenter is not OverlappedPresenter { State: OverlappedPresenterState.Minimized }
+        && WhatsNewPage is null
+        && currentTag is "priority" or "settings";
+
+    /// <summary>Opens Settings at Updates.</summary>
+    public void OpenUpdates()
+    {
+        Navigate("settings");
+        (host.Children.FirstOrDefault() as SettingsPage)?.ShowUpdates();
+    }
+
     public Type? CurrentPageType => host.Children.FirstOrDefault()?.GetType();
 
     public ScrollViewer? CurrentScrollViewer => (host.Children.FirstOrDefault() as PageBase)?.Scroller;

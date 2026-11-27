@@ -264,6 +264,15 @@ public sealed class SettingsPage : PageBase
         updates?.Attach();
     }
 
+    /// <summary>Scrolls to Settings → Updates (from Priority's update card or the notification).</summary>
+    public void ShowUpdates()
+    {
+        if (updates?.Elements.FirstOrDefault() is not { } first) return;
+        void Bring() => first.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
+        if (first.IsLoaded) Bring();
+        else first.Loaded += (_, _) => Bring();
+    }
+
     protected override void Detach()
     {
         updates?.Detach();

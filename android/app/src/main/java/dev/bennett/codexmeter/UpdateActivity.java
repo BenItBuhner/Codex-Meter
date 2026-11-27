@@ -77,6 +77,7 @@ public final class UpdateActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        UpdateNotificationManager.screenResumed(this, () -> true);
         if (flow.returnedWithPermission(canInstallPackages())) {
             beginInstall();
             return;
@@ -87,6 +88,12 @@ public final class UpdateActivity extends AppCompatActivity {
                 setStatus(error, Ui.danger(dark));
             }
         }
+    }
+
+    @Override
+    protected void onPause() {
+        UpdateNotificationManager.screenPaused(this);
+        super.onPause();
     }
 
     @Override

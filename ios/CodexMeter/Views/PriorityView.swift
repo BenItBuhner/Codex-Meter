@@ -20,6 +20,10 @@ struct PriorityView: View {
                     if model.mode == .demo {
                         StatusBanner(message: "Demo data — no network requests", systemImage: "sparkles", tint: .blue)
                     }
+                    #if os(macOS)
+                    // The Mac's update card lives here only, as on Android, Windows and Linux.
+                    MacPriorityUpdateCard()
+                    #endif
                     ForEach(report.sections) { section in
                         PrioritySectionCard(section: section, note: note(for: section)) { item in
                             open(item)
@@ -68,6 +72,10 @@ struct PriorityView: View {
             await model.startIfNeeded()
             await model.refreshProviderStatus()
         }
+        #if os(macOS)
+        .onAppear { MacUpdater.shared.priorityOnScreen = true }
+        .onDisappear { MacUpdater.shared.priorityOnScreen = false }
+        #endif
     }
 
     private func note(for section: PrioritySection) -> String? {

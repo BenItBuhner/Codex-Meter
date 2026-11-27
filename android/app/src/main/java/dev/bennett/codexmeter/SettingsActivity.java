@@ -101,10 +101,20 @@ public final class SettingsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (PAGE_UPDATES.equals(normalizePage(getIntent().getStringExtra(EXTRA_PAGE)))) {
+            // Check now here shows the update on this page; no notification on top of it.
+            UpdateNotificationManager.screenResumed(this, () -> true);
+        }
         if (this.expressive != null) {
             // Values can change on pages opened from here; draw after the fragment's own onResume.
             getWindow().getDecorView().post(this.expressive::render);
         }
+    }
+
+    @Override
+    protected void onPause() {
+        UpdateNotificationManager.screenPaused(this);
+        super.onPause();
     }
 
     static String normalizePage(String page) {

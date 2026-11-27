@@ -255,59 +255,100 @@ enum MacReleaseFeed {
         return Set(matches).count == 1 ? matches[0] : nil
     }
 
-    /// Downloads `asset`, checks its size and SHA-256, and returns the verified file.
+    /// Downloads `asset`, checks its size and SHA-256, and returns the verified file. The system
+    /// download task writes straight to disk (reading the response a byte at a time was the slow
+    /// part), the checksum file comes in alongside it, and a verified copy already in `directory`
+    /// is used again without downloading.
     static func download(_ asset: MacReleaseAsset, sums: MacReleaseAsset, into directory: URL,
                          progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
-        let sumsText = String(decoding: try await get(sums.url, limit: checksumLimit, download: true), as: UTF8.self)
-        guard let expected = expectedSha256(sumsText, for: asset.name) else { throw MacUpdateError.noChecksum }
         guard asset.size <= downloadLimit else { throw MacUpdateError.tooLarge }
+        async let sumsData = get(sums.url, limit: checksumLimit, download: true)
 
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let target = directory.appending(path: asset.name)
+        if asset.size > 0, fileSize(target) == asset.size {
+            let kept = try sha256(of: target)
+            guard let expected = expectedSha256(String(decoding: try await sumsData, as: UTF8.self), for: asset.name) else {
+                throw MacUpdateError.noChecksum
+            }
+            if kept == expected {
+                progress(1)
+                return target
+            }
+        }
+
+        let watcher = DownloadProgress(size: asset.size, limit: downloadLimit, report: progress)
+        let (temporary, response) = try await session.download(from: asset.url, delegate: watcher)
         let partial = directory.appending(path: asset.name + ".partial")
         try? FileManager.default.removeItem(at: partial)
-        FileManager.default.createFile(atPath: partial.path, contents: nil)
-        let handle = try FileHandle(forWritingTo: partial)
-        var hasher = SHA256()
-        var written: Int64 = 0
+        try FileManager.default.moveItem(at: temporary, to: partial)
         do {
-            let (bytes, response) = try await session.bytes(from: asset.url)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                 throw MacUpdateError.http((response as? HTTPURLResponse)?.statusCode ?? 0)
             }
             guard isTrustedFinal(http.url, download: true) else { throw MacUpdateError.untrusted }
-            var buffer = Data()
-            buffer.reserveCapacity(1 << 16)
-            for try await byte in bytes {
-                buffer.append(byte)
-                if buffer.count >= 1 << 16 {
-                    try handle.write(contentsOf: buffer)
-                    hasher.update(data: buffer)
-                    written += Int64(buffer.count)
-                    buffer.removeAll(keepingCapacity: true)
-                    if written > downloadLimit { throw MacUpdateError.tooLarge }
-                    if asset.size > 0 { progress(Double(written) / Double(asset.size)) }
-                }
+            let written = fileSize(partial) ?? -1
+            if written > downloadLimit { throw MacUpdateError.tooLarge }
+            guard let expected = expectedSha256(String(decoding: try await sumsData, as: UTF8.self), for: asset.name) else {
+                throw MacUpdateError.noChecksum
             }
-            if !buffer.isEmpty {
-                try handle.write(contentsOf: buffer)
-                hasher.update(data: buffer)
-                written += Int64(buffer.count)
+            guard asset.size < 0 || written == asset.size, try sha256(of: partial) == expected else {
+                throw MacUpdateError.checksumMismatch
             }
-            try handle.close()
         } catch {
-            try? handle.close()
             try? FileManager.default.removeItem(at: partial)
             throw error
-        }
-        let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
-        guard asset.size < 0 || written == asset.size, actual == expected else {
-            try? FileManager.default.removeItem(at: partial)
-            throw MacUpdateError.checksumMismatch
         }
         try? FileManager.default.removeItem(at: target)
         try FileManager.default.moveItem(at: partial, to: target)
         return target
+    }
+
+    private static func fileSize(_ url: URL) -> Int64? {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value
+    }
+
+    /// SHA-256 of a file, read in 1 MB pieces.
+    private static func sha256(of url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty {
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// Reports a download's progress in whole percents and stops one that grows past the cap.
+private final class DownloadProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let size: Int64
+    private let limit: Int64
+    private let report: @Sendable (Double) -> Void
+    private var observation: NSKeyValueObservation?
+    private var reported = -1
+
+    init(size: Int64, limit: Int64, report: @escaping @Sendable (Double) -> Void) {
+        self.size = size
+        self.limit = limit
+        self.report = report
+    }
+
+    func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
+        observation = task.observe(\.countOfBytesReceived) { [weak self] task, _ in
+            guard let self else { return }
+            let received = task.countOfBytesReceived
+            if received > self.limit {
+                task.cancel()
+                return
+            }
+            guard self.size > 0 else { return }
+            let percent = Int(received * 100 / self.size)
+            if percent != self.reported {
+                self.reported = percent
+                self.report(Double(received) / Double(self.size))
+            }
+        }
     }
 }
 
@@ -342,6 +383,10 @@ final class MacUpdater {
     private(set) var available: MacRelease?
     private(set) var latest: MacRelease?
     private(set) var progress: Double = 0
+    /// Priority (with its update card) or Settings → Updates is on screen: an automatic check
+    /// that finds the update then stays quiet instead of notifying about what is showing.
+    @ObservationIgnored var priorityOnScreen = false
+    @ObservationIgnored var updatesOnScreen = false
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private let defaults = UserDefaults.standard
 
@@ -434,6 +479,32 @@ final class MacUpdater {
         }
     }
 
+    /// The app is in front on Priority or Settings → Updates, which both show the update.
+    private var showingUpdate: Bool {
+        NSApp.isActive && (priorityOnScreen || updatesOnScreen)
+    }
+
+    /// Priority's update card title (Android's wording), or nil with no update to show.
+    var cardTitle: String? {
+        guard let available else { return nil }
+        return isReturnToStable ? "Return to Codex Meter \(available.version)" : "Codex Meter \(available.version) is ready"
+    }
+
+    /// The update card's line: what is happening, or what installing does.
+    var cardDetail: String {
+        switch status {
+        case .downloading: "Downloading · \(Int(progress * 100))%"
+        case .installing: "Verified. Installing the update…"
+        case .failed(let message): message
+        default:
+            isReturnToStable
+                ? "You're back on the stable channel. The stable release installs in place over this alpha build after checksum verification."
+                : available?.prerelease == true
+                ? "A signed alpha release is available. It's checked against the release's SHA-256 checksums before it installs."
+                : "A signed GitHub release is available. It's checked against the release's SHA-256 checksums before it installs."
+        }
+    }
+
     var lastCheckText: String {
         guard let lastCheck else { return "Version \(Self.installedVersionText)." }
         return "Version \(Self.installedVersionText). Last checked \(lastCheck.formatted(date: .abbreviated, time: .shortened))."
@@ -470,7 +541,7 @@ final class MacUpdater {
             status = available == nil ? .upToDate : .available
             if let available, !manual, notify, defaults.string(forKey: Key.lastNotified) != available.tag {
                 defaults.set(available.tag, forKey: Key.lastNotified)
-                postNotification(available)
+                if !showingUpdate { postNotification(available) }
             }
         } catch {
             status = .failed(error.localizedDescription)

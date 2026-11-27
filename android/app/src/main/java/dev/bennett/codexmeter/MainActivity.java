@@ -283,6 +283,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        UpdateNotificationManager.screenResumed(this, this::showsUpdateCard);
         Context health = getApplicationContext();
         housekeeping(() -> AppSessionHealth.check(health));
         refreshModelSpeed();
@@ -370,6 +371,7 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
 
     @Override
     protected void onPause() {
+        UpdateNotificationManager.screenPaused(this);
         this.statusHandler.removeCallbacks(this.statusTick);
         if (this.glass != null) {
             this.glass.onPause();
@@ -439,6 +441,20 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
     /** True while the Priority tab is showing. */
     boolean onPriorityTab() {
         return this.onPriority;
+    }
+
+    /**
+     * The update card lives on the Priority page. Only with no Priority tab (turned off, or no
+     * provider to cover) does it show on the provider dashboards instead, so it is never lost.
+     */
+    boolean updateCardOnDashboard() {
+        return !priorityTabShown();
+    }
+
+    /** Whether the tab on screen carries the update card (see {@link #updateCardOnDashboard}). */
+    private boolean showsUpdateCard() {
+        boolean onTab = this.onPriority || updateCardOnDashboard();
+        return this.glass != null ? this.glass.showsUpdate(onTab) : onTab;
     }
 
     /** The Priority tab is in the bar: turned on, and at least one provider to cover. */
@@ -799,7 +815,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
         }
         if (this.content != null) {
             this.content.removeAllViews();
-            GitHubRelease update = UpdatePreferences.availableUpdate(this);
+            GitHubRelease update = updateCardOnDashboard()
+                    ? UpdatePreferences.availableUpdate(this) : null;
             if (update != null) {
                 this.content.addView(buildUpdateCard(update));
                 Ui.addSpacer(this.content, 20);
@@ -2093,7 +2110,8 @@ public final class MainActivity extends AppCompatActivity implements GlassApp.Ho
      * Now Bar, Wear, alerts, and burn history remain Codex-only for now.
      */
     private void buildProviderDashboard(UsageProvider target) {
-        GitHubRelease update = UpdatePreferences.availableUpdate(this);
+        GitHubRelease update = updateCardOnDashboard()
+                ? UpdatePreferences.availableUpdate(this) : null;
         if (update != null) {
             this.content.addView(buildUpdateCard(update));
             Ui.addSpacer(this.content, 20);

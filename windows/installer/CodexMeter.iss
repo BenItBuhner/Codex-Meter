@@ -52,6 +52,9 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=yes
+; Only Codex Meter's own .exe can hold the folder open; asking Restart Manager about every DLL
+; (the default *.exe,*.dll,*.chm) made each in-app update wait while it registered hundreds of files.
+CloseApplicationsFilter=*.exe
 RestartApplications=no
 
 [Languages]
@@ -84,7 +87,38 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/f /im CodexMeter.exe"; Flags: runh
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "CodexMeter"; Flags: uninsdeletevalue dontcreatekey
 
 [Code]
+const
+  SYNCHRONIZE = $00100000;
+
+function OpenProcess(dwDesiredAccess: Cardinal; bInheritHandle: Boolean; dwProcessId: Cardinal): THandle;
+  external 'OpenProcess@kernel32.dll stdcall';
+function WaitForSingleObject(hHandle: THandle; dwMilliseconds: Cardinal): Cardinal;
+  external 'WaitForSingleObject@kernel32.dll stdcall';
+function CloseHandle(hObject: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
 function RelaunchRequested(): Boolean;
 begin
   Result := WizardSilent() and (ExpandConstant('{param:RELAUNCH|0}') = '1');
+end;
+
+{ The in-app updater passes /WAITPID=<its process id> and quits right after starting this setup.
+  Waiting here for it to finish quitting (at most 15 seconds) means Restart Manager finds nothing
+  to close, instead of asking a tray app that hides on close and waiting on it. }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Pid: Cardinal;
+  ProcessHandle: THandle;
+begin
+  Result := '';
+  Pid := StrToIntDef(ExpandConstant('{param:WAITPID|0}'), 0);
+  if Pid = 0 then
+    Exit;
+  ProcessHandle := OpenProcess(SYNCHRONIZE, False, Pid);
+  if ProcessHandle = 0 then
+    Exit;
+  Log('Waiting for Codex Meter (process ' + IntToStr(Pid) + ') to quit');
+  WaitForSingleObject(ProcessHandle, 15000);
+  CloseHandle(ProcessHandle);
+  Log('Codex Meter has quit');
 end;

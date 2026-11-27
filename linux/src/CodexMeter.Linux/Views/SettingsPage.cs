@@ -308,6 +308,18 @@ public sealed class SettingsPage : IPage
     }
 
     private Action? renderUpdates;
+    private Adw.ActionRow? updatesRow;
+
+    /// <summary>Scrolls to Updates (from Priority's update card or the notification): the page follows focus.</summary>
+    public void ShowUpdates()
+    {
+        if (updatesRow is not { } row) return;
+        GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () =>
+        {
+            row.GrabFocus();
+            return false;
+        });
+    }
 
     /// <summary>
     /// Settings → Updates, as on Android: channel, automatic checks, notifications and Check for
@@ -319,6 +331,7 @@ public sealed class SettingsPage : IPage
         void Save(Func<UpdatePreferences, UpdatePreferences> change) => state.Settings.Update(x => x with { Updates = change(x.Updates) });
         var group = Group("Updates");
         var status = Adw.ActionRow.New();
+        updatesRow = status;
         status.SetTitle("Codex Meter updates");
         status.SetName("UpdateStatusRow");
         status.AddPrefix(Gtk.Image.NewFromIconName("software-update-available-symbolic"));

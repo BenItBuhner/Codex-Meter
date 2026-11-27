@@ -125,6 +125,19 @@ public sealed class MainWindow
 
     public string CurrentTag => current?.Tag ?? "";
 
+    /// <summary>
+    /// True while the window is open on a page that shows the available update: Priority (its
+    /// update card) or Settings (Updates). The automatic check's notification stays quiet then.
+    /// </summary>
+    public bool ShowsUpdate => Window.GetVisible() && CurrentTag is "priority" or "settings";
+
+    /// <summary>Opens Settings at Updates.</summary>
+    public void OpenUpdates()
+    {
+        Navigate("settings");
+        (current as SettingsPage)?.ShowUpdates();
+    }
+
     public IPage? CurrentPage => current;
 
     public bool IsCollapsed => split.GetCollapsed();

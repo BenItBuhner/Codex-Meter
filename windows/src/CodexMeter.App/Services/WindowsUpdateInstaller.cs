@@ -42,7 +42,9 @@ public sealed class WindowsUpdateInstaller : IUpdateInstaller
             throw new UpdateException("The installer's digital signature isn't valid, so it wasn't run.");
         // Same scope as this install: per user under %LOCALAPPDATA%\Programs, otherwise all users (Windows asks).
         var perUser = appDirectory.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), StringComparison.OrdinalIgnoreCase);
-        var arguments = $"/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RELAUNCH=1 {(perUser ? "/CURRENTUSER" : "/ALLUSERS")} /LOG=\"{update.Path}.log\"";
+        // WAITPID: setup waits for this copy to finish quitting instead of asking Restart Manager to close it.
+        var arguments = $"/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RELAUNCH=1 /WAITPID={Environment.ProcessId} " +
+            $"{(perUser ? "/CURRENTUSER" : "/ALLUSERS")} /LOG=\"{update.Path}.log\"";
         App.Log($"Update: running {Path.GetFileName(update.Path)} ({update.Sha256}, signature {trust}) {arguments}");
         Process.Start(new ProcessStartInfo(update.Path, arguments) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(update.Path)! });
         return InstallOutcome.QuitToFinish;

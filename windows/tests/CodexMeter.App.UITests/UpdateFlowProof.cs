@@ -16,8 +16,8 @@ public sealed class UpdateProofFactAttribute : FactAttribute
 }
 
 /// <summary>
-/// The whole in-app update on a real install: the automatic check finds the newer release and
-/// shows a notification, a tampered download is refused by the SHA-256 check, the honest
+/// The whole in-app update on a real install: the automatic check finds the newer release (and,
+/// with Settings open, shows it there without a notification), a tampered download is refused by the SHA-256 check, the honest
 /// download installs through the setup, and the app reopens as the new version.
 /// </summary>
 public class UpdateFlowProof
@@ -59,8 +59,9 @@ public class UpdateFlowProof
             Thread.Sleep(2000);
             Shot("01-settings-before-check");
 
-            // The background tick runs a minute after launch; its automatic check posts the notification.
-            WaitForButton(app, "Download and install", TimeSpan.FromSeconds(100), "02-update-found-notification");
+            // The background tick runs a minute after launch. Settings shows the update itself, so its
+            // automatic check stays quiet (no notification on top of the page that shows it).
+            WaitForButton(app, "Download and install", TimeSpan.FromSeconds(100), "02-update-found");
             Thread.Sleep(1500);
             Shot("03-update-available");
 

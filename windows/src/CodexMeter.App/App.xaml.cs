@@ -68,6 +68,7 @@ public partial class App : Application
                     "Install it from Settings → Updates. The download is checked against the release's SHA-256 checksums.",
                     "update:" + release.Version.Normalized), "update");
                 updater.QuitRequested += Quit;
+                updater.IsShowingUpdate = () => window?.ShowsUpdate == true;
             }
 
             if (options.ScreenshotDirectory is null)
@@ -133,7 +134,7 @@ public partial class App : Application
     {
         ShowMainWindow();
         if (action != "update") return;
-        window?.Navigate("settings");
+        window?.OpenUpdates();
         if (State.Updater is { Status: UpdateStatus.Available } updater) _ = updater.DownloadAndInstallAsync();
     }
 

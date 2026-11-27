@@ -19,12 +19,15 @@ public sealed class PriorityPage : IPage
     private readonly Action<UsageProvider> onChanged;
     private readonly Action onProviders;
     private readonly Action onService;
+    private readonly Action? onUpdate;
+    private readonly MainWindow window;
     private readonly List<Adw.PreferencesGroup> groups = [];
     private readonly uint timer;
 
     public PriorityPage(AppState state, MainWindow window)
     {
         this.state = state;
+        this.window = window;
         preferences = Adw.PreferencesPage.New();
         preferences.SetName("PriorityPage");
         var view = Adw.ToolbarView.New();
@@ -40,6 +43,11 @@ public sealed class PriorityPage : IPage
         onService = () => GLib.Functions.IdleAdd(GLib.Constants.PRIORITY_DEFAULT_IDLE, () => { Render(); return false; });
         state.ServiceChanged += onService;
         timer = GLib.Functions.TimeoutAddSeconds(GLib.Constants.PRIORITY_DEFAULT, 30, () => { Render(); return true; });
+        if (state.Updater is { } updater)
+        {
+            onUpdate = Render;
+            updater.Changed += onUpdate;
+        }
         Render();
         _ = state.RefreshAllAsync(force: false);
         _ = state.RefreshServiceAsync(foreground: true);
@@ -55,6 +63,32 @@ public sealed class PriorityPage : IPage
         state.ProvidersChanged -= onProviders;
         state.ServiceChanged -= onService;
         GLib.Functions.SourceRemove(timer);
+        if (state.Updater is { } updater && onUpdate is not null) updater.Changed -= onUpdate;
+    }
+
+    /// <summary>
+    /// The update card, as on Android: only here on Priority, under the headline, while an update
+    /// is out. Review Update opens Settings → Updates (channel, release notes, download and install).
+    /// </summary>
+    private void UpdateCard()
+    {
+        if (state.Updater is not { CardTitle: { } title } updater) return;
+        var group = Adw.PreferencesGroup.New();
+        group.SetName("PriorityUpdate");
+        var row = Adw.ActionRow.New();
+        row.SetUseMarkup(false);
+        row.SetTitle(title);
+        row.SetSubtitle(updater.CardDetail);
+        row.AddPrefix(Gtk.Image.NewFromIconName("software-update-available-symbolic"));
+        var review = Gtk.Button.NewWithLabel("Review Update");
+        review.AddCssClass("suggested-action");
+        review.SetValign(Gtk.Align.Center);
+        review.SetName("PriorityUpdateButton");
+        review.OnClicked += (_, _) => window.OpenUpdates();
+        row.AddSuffix(review);
+        row.SetActivatableWidget(review);
+        group.Add(row);
+        Add(group);
     }
 
     private void Render()
@@ -67,6 +101,7 @@ public sealed class PriorityPage : IPage
         top.SetDescription(report.Headline);
         top.SetName("PriorityHeadline");
         Add(top);
+        UpdateCard();
         Section("Service status", report.Service, "PriorityService");
         Section("Running slow", report.Slow, "PrioritySlow", PriorityReport.SlowNote);
         Section("Limits to watch", report.Watch, "PriorityWatch");

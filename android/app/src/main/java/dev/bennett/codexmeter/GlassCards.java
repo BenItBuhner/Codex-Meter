@@ -19,7 +19,9 @@ final class GlassCards {
     static GlassModel.Dashboard build(MainActivity activity, UsageProvider provider) {
         GlassModel.Dashboard d = new GlassModel.Dashboard();
         d.title = provider.displayName;
-        GitHubRelease update = UpdatePreferences.availableUpdate(activity);
+        // The update card lives on the Priority page (see MainActivity.updateCardOnDashboard).
+        GitHubRelease update = activity.updateCardOnDashboard()
+                ? UpdatePreferences.availableUpdate(activity) : null;
         if (update != null) {
             d.cards.add(update(activity, update));
         }
