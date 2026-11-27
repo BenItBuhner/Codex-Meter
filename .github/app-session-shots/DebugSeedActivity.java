@@ -11,7 +11,8 @@ import java.util.List;
 /**
  * Debug-only (temporary screenshot job): seeds Codex, Claude Code and Cursor sample usage,
  * turns on "Show in AI apps", then opens a screen. Extras: open (main|now_bar|app_sessions|none),
- * design (oneui9|classic), sessions (on|off), mode (Now Bar "Show as" value), monitor (start).
+ * design (oneui9|classic), sessions (on|off), mode (Now Bar "Show as" value), monitor (start),
+ * select (provider id of the dashboard tab the monitor follows; Codex by default).
  */
 public class DebugSeedActivity extends Activity {
     @Override
@@ -53,7 +54,10 @@ public class DebugSeedActivity extends Activity {
             }
             ProviderPreferences.setOrder(this, order);
             ProviderPreferences.setEnabledProviders(this, enabled);
-            ProviderPreferences.setSelected(this, UsageProvider.CODEX);
+            String select = getIntent().getStringExtra("select");
+            UsageProvider selected = select == null ? null : UsageProvider.fromId(select);
+            ProviderPreferences.setSelected(this,
+                    selected == null ? UsageProvider.CODEX : selected);
             AppSessionPreferences.setEnabled(this, !"off".equals(
                     getIntent().getStringExtra("sessions")));
         } catch (SkipSeed skip) {
