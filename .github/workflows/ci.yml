@@ -427,13 +427,13 @@ jobs:
       - name: Build with warnings as errors
         run: dotnet build src/CodexMeter.App/CodexMeter.App.csproj -c Release -r win-x64 -p:Platform=x64 -warnaserror
 
-  # Three macOS jobs side by side: the iPhone Release build, lint, package tests and the Mac
-  # budgets; the iOS unit tests; the iPhone budgets. Every build is for the runner's own
+  # Three macOS jobs side by side: the iPhone and Mac Release builds and the Mac budgets; the iOS
+  # unit tests; lint, package tests and the iPhone budgets. Every build is for the runner's own
   # architecture only. No simulator boots alongside a build: on these 3-core runners that made the
   # build 2-2.5x slower. So the unit tests boot after their build, and the iPhone budgets job boots
   # right away and takes the Release app this job builds first.
   apple-core:
-    name: Apple lint, core tests and Mac performance budgets
+    name: iPhone and Mac Release builds, Mac performance budgets
     needs: changes
     if: needs.changes.outputs.apple == 'true'
     runs-on: macos-26
@@ -460,15 +460,6 @@ jobs:
           path: ${{ runner.temp }}/iphone-release-app.tgz
           retention-days: 1
           compression-level: 0
-      - name: SwiftLint (strict; force_try is an error)
-        run: |
-          set -euo pipefail
-          curl -fsSL -o "$RUNNER_TEMP/swiftlint.zip" \
-            https://github.com/realm/SwiftLint/releases/download/0.63.2/portable_swiftlint.zip
-          unzip -q -o "$RUNNER_TEMP/swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
-          "$RUNNER_TEMP/swiftlint/swiftlint" lint --strict --reporter github-actions-logging
-      - name: CodexMeterCore tests with warnings as errors
-        run: swift test --package-path ios/CodexMeterCore -Xswiftc -warnings-as-errors
       - name: Build the Release Mac app
         run: |
           set -euo pipefail
@@ -525,7 +516,7 @@ jobs:
         if: always()
         run: xcrun simctl shutdown all || true
   apple-performance:
-    name: iPhone performance budgets
+    name: Apple lint, core tests and iPhone performance budgets
     needs: changes
     if: needs.changes.outputs.apple == 'true'
     runs-on: macos-26
@@ -535,18 +526,29 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v7
-      # The Release app is built by the Apple lint job, so this runner does nothing but boot the
-      # simulator (2-8 minutes of first-boot data migration) while it builds; nothing else runs
-      # alongside the boot, as before. Then it installs the app and measures.
+      # The Release app is built by the Release builds job, so this runner boots the simulator
+      # (2-8 minutes of first-boot data migration) from its first minute and measures once both
+      # are ready. No build runs alongside the boot here; the measurements start after it.
       - name: Pick an iPhone simulator
         id: simulator
         run: macos/ci/boot-simulator.sh pick
       - name: Boot the simulator
         run: macos/ci/boot-simulator.sh boot "${{ steps.simulator.outputs.udid }}"
-      - name: Wait for the Release iPhone app from the Apple lint job
+      # Lint and the package tests fill the boot's wait: the Release app arrives after ~4 minutes,
+      # and the simulator is usually ready by then even with them running.
+      - name: SwiftLint (strict; force_try is an error)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/swiftlint.zip" \
+            https://github.com/realm/SwiftLint/releases/download/0.63.2/portable_swiftlint.zip
+          unzip -q -o "$RUNNER_TEMP/swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
+          "$RUNNER_TEMP/swiftlint/swiftlint" lint --strict --reporter github-actions-logging
+      - name: CodexMeterCore tests with warnings as errors
+        run: swift test --package-path ios/CodexMeterCore -Xswiftc -warnings-as-errors
+      - name: Wait for the Release iPhone app from the Release builds job
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/scripts/wait-for-artifact.sh iphone-release-app "Apple lint, core tests and Mac performance budgets"
+        run: .github/scripts/wait-for-artifact.sh iphone-release-app "iPhone and Mac Release builds, Mac performance budgets"
       - uses: actions/download-artifact@v8
         with:
           name: iphone-release-app
