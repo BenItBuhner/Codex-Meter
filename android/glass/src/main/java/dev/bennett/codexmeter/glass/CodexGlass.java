@@ -604,6 +604,27 @@ public final class CodexGlass {
                                 "color", t.pal.label2), r.summary)));
     }
 
+    /**
+     * A page's pull-down menu (UIKit's pull-down button, SwiftUI's Menu in a toolbar): Glassé's
+     * GlassMenu, which morphs out of the bar button. Toggle items show a checkmark and keep the menu
+     * open while they flip; the page rebuilds with the new state, and the open menu redraws it.
+     */
+    private static El pullDown(GlassModel.Action a) {
+        List<MenuItem> rows = new ArrayList<>();
+        for (GlassModel.MenuItem item : a.menu) {
+            if (item == null) {
+                rows.add(null);
+            } else if (item.header) {
+                rows.add(new MenuItem(item.label, null, false, null, null, null, false, false, true));
+            } else {
+                rows.add(new MenuItem(item.label, item.icon, false, item.onSelect, item.checked, null, false,
+                        item.checked != null));
+            }
+        }
+        return GlassMenu(P.of("key", "a:" + a.label, "id", "a:" + a.label, "icon", a.icon != null ? a.icon : "ellipsis",
+                "width", 280, "items", rows));
+    }
+
     private static int buttons(List<GlassSource.MenuEntry> menu) {
         int n = 0;
         for (GlassSource.MenuEntry entry : menu) {
@@ -955,7 +976,8 @@ public final class CodexGlass {
         }
         if (topPage != null) {
             for (GlassModel.Action a : topPage.actions) {
-                actions.add(a.icon != null
+                actions.add(a.menu != null ? pullDown(a)
+                        : a.icon != null
                         ? GlassButton(P.of("key", "a:" + a.label, "icon", a.icon, "onPress", a.onPress))
                         : GlassButton(P.of("key", "a:" + a.label, "label", a.label, "padX", 16,
                                 "variant", a.prominent ? "filled" : null, "fillColor", a.prominent ? t.accent : null,

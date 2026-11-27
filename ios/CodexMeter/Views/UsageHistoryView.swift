@@ -80,7 +80,6 @@ struct UsageHistoryDashboardCard: View {
 struct UsageHistoryView: View {
     @Environment(AppModel.self) private var model
     @State private var confirmingClear = false
-    @State private var showingCustomize = false
 
     private var hasCharts: Bool {
         model.usage?.fiveHour != nil || model.usage?.weekly != nil || model.usage?.monthly != nil
@@ -184,13 +183,19 @@ struct UsageHistoryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Customize") {
-                    showingCustomize = true
+                // A pull-down menu of toggles (a checkmark per highlight shown); it stays open
+                // so several can flip in a row.
+                Menu {
+                    Section("Show on this page") {
+                        ForEach(HistorySections.all, id: \.self) { key in
+                            Toggle(HistorySections.label(key), isOn: highlightBinding(for: key))
+                        }
+                    }
+                } label: {
+                    Label("Highlights", systemImage: "slider.horizontal.3")
                 }
+                .keepsMenuOpen()
             }
-        }
-        .sheet(isPresented: $showingCustomize) {
-            HistoryCustomizeView()
         }
         .confirmationDialog(
             "Clear usage history?",
@@ -236,37 +241,8 @@ struct UsageHistoryView: View {
             HistoryInsightsCard(model: insights)
         }
     }
-}
 
-private struct HistoryCustomizeView: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(HistorySections.all, id: \.self) { key in
-                        Toggle(HistorySections.label(key), isOn: binding(for: key))
-                    }
-                } header: {
-                    Text("Highlights to show")
-                } footer: {
-                    Text("The charts and clear-history action always stay available. Turning a highlight off declutters this page without deleting samples.")
-                }
-            }
-            .navigationTitle("Customize")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-
-    private func binding(for key: String) -> Binding<Bool> {
+    private func highlightBinding(for key: String) -> Binding<Bool> {
         Binding(
             get: { model.settings.isHistorySectionVisible(key) },
             set: { visible in
@@ -780,4 +756,16 @@ private struct UsageChartPoint: Identifiable {
     let progress: Double
     let usedPercent: Double
     let series: String
+}
+
+private extension View {
+    /// Keeps a menu open after a pick (iOS only; the Mac's menus always close).
+    @ViewBuilder
+    func keepsMenuOpen() -> some View {
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        self
+        #else
+        menuActionDismissBehavior(.disabled)
+        #endif
+    }
 }
