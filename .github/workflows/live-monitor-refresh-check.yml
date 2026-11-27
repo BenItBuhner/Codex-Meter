@@ -174,7 +174,9 @@ jobs:
             # the tap made is read from the app's own log as well.
             check "$name" "button says Refreshing" \
               "$( (grep -q 'Refreshing' "$OUT/record-$name-tapped.txt" \
-                  || adb logcat -d | grep -q 'Posting live monitor.*refreshing=true') && echo 1 || echo 0)"
+                  || { adb logcat -d > "$OUT/logcat-$name.txt";
+                       grep -q 'Posting live monitor.*refreshing=true' "$OUT/logcat-$name.txt"; }) \
+                  && echo 1 || echo 0)"
             local fetched=0
             for i in $(seq 1 40); do
               (( $(events "$event") > before )) && { fetched=1; break; }
