@@ -153,7 +153,7 @@ jobs:
             local name="$1" id="$2" label="$3" event="$4" state="$5"
             adb shell am set-standby-bucket $PKG active || true
             adb shell cmd appops set $PKG RUN_ANY_IN_BACKGROUND allow || true
-            seed --es open none --es select "$id" --es mode android_live_update --es monitor start
+            seed --es open none --es select "$id" --es sessions off --es diagnostics on --es mode android_live_update --es monitor start
             adb shell input keyevent HOME; sleep 2
             case "$state" in
               killed) adb shell am kill $PKG; sleep 2 ;;
