@@ -281,26 +281,26 @@ jobs:
   # Opens every design and screen of a debug build shrunk by the release R8 rules
   # (android/ci/shrunk-smoke.sh), one design per emulator.
   shrunk-smoke:
-    name: Android R8 smoke test (${{ matrix.designs }}${{ matrix.part != '1/1' && format(' {0}', matrix.part) || '' }})
+    name: Android R8 smoke test (${{ matrix.designs }} ${{ matrix.part }})
     needs: changes
     if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # Each design's 28 screens are split over two emulators (every other screen, PART=i/n in
+      # shrunk-smoke.sh), three for Liquid Glass, whose first frames are slow on a software GPU:
+      # the screens took 2.5-3.5 min on one emulator, about as long as the build before them.
       matrix:
-        designs: [classic, one_ui_9, one_ui_9_5, liquid_glass, material_3_expressive]
-        part: ['1/1']
-        # Liquid Glass draws its first frame slowly on a software GPU, so its screens are split over
-        # two emulators to finish with the other designs.
-        exclude:
-          - designs: liquid_glass
-            part: '1/1'
+        designs: [classic, one_ui_9, one_ui_9_5, material_3_expressive]
+        part: ['1/2', '2/2']
         include:
           - designs: liquid_glass
-            part: '1/2'
+            part: '1/3'
           - designs: liquid_glass
-            part: '2/2'
+            part: '2/3'
+          - designs: liquid_glass
+            part: '3/3'
     steps:
       - uses: actions/checkout@v7
       # Before the emulator install starts: two sdkmanager runs at once can trip over each other.
@@ -375,7 +375,7 @@ jobs:
         if: success() || failure()
         uses: actions/upload-artifact@v7
         with:
-          name: shrunk-smoke-${{ matrix.designs }}-${{ matrix.part == '1/1' && 'all' || (matrix.part == '1/2' && '1' || '2') }}
+          name: shrunk-smoke-${{ matrix.designs }}-${{ strategy.job-index }}
           path: shrunk-smoke/
           if-no-files-found: warn
 
@@ -427,19 +427,18 @@ jobs:
       - name: Build with warnings as errors
         run: dotnet build src/CodexMeter.App/CodexMeter.App.csproj -c Release -r win-x64 -p:Platform=x64 -warnaserror
 
-  # Three macOS jobs side by side: the iPhone Release build, lint, package tests and the Mac
-  # budgets; the iOS unit tests; the iPhone budgets. Every build is for the runner's own
-  # architecture only. No simulator boots alongside a build: on these 3-core runners that made the
-  # build 2-2.5x slower. So the unit tests boot after their build, and the iPhone budgets job boots
-  # right away and takes the Release app this job builds first.
+  # Four macOS jobs side by side (the account gets five macOS runners): lint, package tests and the
+  # Release iPhone build; the iOS unit test build and the Mac budgets; the iOS unit tests; the
+  # iPhone budgets. Every build is for the runner's own architecture only. No simulator boots
+  # alongside a build: on these 3-core runners that made the build 2-2.5x slower, and lint or
+  # tests next to a boot ran ~15x slower. So the two simulator jobs boot from their first minute
+  # and take what they need from the build jobs as artifacts (.github/scripts/wait-for-artifact.sh).
   apple-core:
-    name: Apple lint, core tests and Mac performance budgets
+    name: Apple lint, core tests and the Release iPhone build
     needs: changes
     if: needs.changes.outputs.apple == 'true'
     runs-on: macos-26
     timeout-minutes: 30
-    env:
-      SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
     steps:
       - uses: actions/checkout@v7
       # First, so the iPhone budgets job (booting its simulator meanwhile) gets it as early as
@@ -469,26 +468,23 @@ jobs:
           "$RUNNER_TEMP/swiftlint/swiftlint" lint --strict --reporter github-actions-logging
       - name: CodexMeterCore tests with warnings as errors
         run: swift test --package-path ios/CodexMeterCore -Xswiftc -warnings-as-errors
-      - name: Build the Release Mac app
-        run: |
-          set -euo pipefail
-          xcodebuild build -project macos/CodexMeterMac.xcodeproj -scheme CodexMeterMac -configuration Release \
-            -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/mac" $SIGNING_ARGS \
-            ONLY_ACTIVE_ARCH=YES COMPILER_INDEX_STORE_ENABLE=NO -quiet
-      - name: Measure Mac start-up and memory
-        run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
 
-  apple:
-    name: iOS unit tests
+  # The Mac budgets on their own runner (a quiet one: the Mac launches are measured before any
+  # simulator runs). The iOS unit tests are built here first and handed to the unit tests job,
+  # which boots its simulator meanwhile instead of after its own build.
+  apple-mac:
+    name: iOS unit test build and Mac performance budgets
     needs: changes
     if: needs.changes.outputs.apple == 'true'
     runs-on: macos-26
     timeout-minutes: 30
+    env:
+      SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
     steps:
       - uses: actions/checkout@v7
       # Warnings are errors through the project's own build settings. Passing them on the
       # command line would also reach the CodexMeterCore package, which Xcode builds with
-      # -suppress-warnings, and the two flags conflict. swift test (above) covers the package.
+      # -suppress-warnings, and the two flags conflict. swift test covers the package.
       - name: Build the iOS unit tests with warnings as errors
         working-directory: ios
         run: |
@@ -499,28 +495,72 @@ jobs:
             -destination 'generic/platform=iOS Simulator' -derivedDataPath DerivedData \
             -only-testing:CodexMeterTests \
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
+          # The .xctestrun and the products it points at (relative to it), executable bits kept.
+          tar -czf "$RUNNER_TEMP/ios-unit-tests.tgz" -C DerivedData/Build Products
+      - name: Hand the unit tests to the iOS unit tests job
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-unit-tests
+          path: ${{ runner.temp }}/ios-unit-tests.tgz
+          retention-days: 1
+          compression-level: 0
+      - name: Build the Release Mac app
+        run: |
+          set -euo pipefail
+          xcodebuild build -project macos/CodexMeterMac.xcodeproj -scheme CodexMeterMac -configuration Release \
+            -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/mac" $SIGNING_ARGS \
+            ONLY_ACTIVE_ARCH=YES COMPILER_INDEX_STORE_ENABLE=NO -quiet
+      - name: Measure Mac start-up and memory
+        run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
+
+
+  apple:
+    name: iOS unit tests
+    needs: changes
+    if: needs.changes.outputs.apple == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+            macos/ci
+      # The tests are built by the Mac budgets job; this runner boots the simulator meanwhile.
       - name: Pick an iPhone simulator
         id: simulator
         run: macos/ci/boot-simulator.sh pick
       - name: Boot the simulator
         run: macos/ci/boot-simulator.sh boot "${{ steps.simulator.outputs.udid }}"
+      - name: Wait for the iOS unit test build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/wait-for-artifact.sh ios-unit-tests "iOS unit test build and Mac performance budgets"
+      - uses: actions/download-artifact@v8
+        with:
+          name: ios-unit-tests
+          path: ${{ runner.temp }}
       - name: Wait for the simulator
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |
+          mkdir -p "$RUNNER_TEMP/ios-tests"
+          tar -xzf "$RUNNER_TEMP/ios-unit-tests.tgz" -C "$RUNNER_TEMP/ios-tests"
           SECONDS=0
           xcrun simctl bootstatus "$UDID"
-          echo "Booted in ${SECONDS}s"
+          echo "Waited ${SECONDS}s more for the boot"
       - name: Run the iOS unit tests
-        working-directory: ios
         env:
           UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           set -euo pipefail
-          xcodebuild test-without-building -project CodexMeter.xcodeproj -scheme CodexMeter \
-            -destination "id=$UDID" -derivedDataPath DerivedData \
-            -only-testing:CodexMeterTests \
-            CODE_SIGNING_ALLOWED=NO
+          XCTESTRUN="$(find "$RUNNER_TEMP/ios-tests/Products" -maxdepth 1 -name '*.xctestrun' | head -n 1)"
+          [[ -n "$XCTESTRUN" ]] || { echo "::error::No .xctestrun in the unit test build" >&2; exit 1; }
+          xcodebuild test-without-building -xctestrun "$XCTESTRUN" \
+            -destination "id=$UDID" -only-testing:CodexMeterTests
       - name: Shut the simulator down
         if: always()
         run: xcrun simctl shutdown all || true
@@ -546,7 +586,7 @@ jobs:
       - name: Wait for the Release iPhone app from the Apple lint job
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/scripts/wait-for-artifact.sh iphone-release-app "Apple lint, core tests and Mac performance budgets"
+        run: .github/scripts/wait-for-artifact.sh iphone-release-app "Apple lint, core tests and the Release iPhone build"
       - uses: actions/download-artifact@v8
         with:
           name: iphone-release-app
@@ -639,7 +679,7 @@ jobs:
     name: CI gate
     if: always()
     needs: [changes, android, performance, shrunk-smoke, payload, desktop, windows-app, apple-core,
-            apple, linux-performance, windows-performance, apple-performance]
+            apple-mac, apple, linux-performance, windows-performance, apple-performance]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -659,7 +699,7 @@ jobs:
               .changes.outputs as $on
               | {android: ["android"], performance: ["android"], "shrunk-smoke": ["android"],
                  desktop: ["windows", "linux"], "windows-app": ["windows"], "windows-performance": ["windows"],
-                 "linux-performance": ["linux"], "apple-core": ["apple"], apple: ["apple"],
+                 "linux-performance": ["linux"], "apple-core": ["apple"], "apple-mac": ["apple"], apple: ["apple"],
                  "apple-performance": ["apple"]} as $areas
               | to_entries[] | .key as $job
               | select($areas[$job] != null)
@@ -671,7 +711,7 @@ jobs:
           # Every job the gate waits for must be in the area map above.
           unmapped="$(echo "$RESULTS" | jq -r '
               ["changes", "payload", "android", "performance", "shrunk-smoke", "desktop", "windows-app",
-               "windows-performance", "linux-performance", "apple-core", "apple", "apple-performance"] as $known
+               "windows-performance", "linux-performance", "apple-core", "apple-mac", "apple", "apple-performance"] as $known
               | keys[] | select(. as $k | $known | index($k) | not)')"
           if [[ -n "$unmapped" ]]; then
             echo "::error::Add these jobs to the gate's area map: $unmapped"

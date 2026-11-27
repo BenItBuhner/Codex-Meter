@@ -34,7 +34,7 @@ A stable release (3.0.0 first) ships only when every item below holds on the com
 
 **Performance and size.** Budgets are enforced in CI, not checked by hand. Raise a ceiling only with a measured reason in the PR; lower ceilings as the app gets leaner.
 - Android release APK: cold start (median of 11 launches), total PSS after launch and APK size, measured on an emulator by `android/ci/perf-budgets.sh` (the "Android performance budgets" job).
-- iPhone (simulator) and Mac Release builds: first frame (median of 7 launches) and physical footprint after launch, by `macos/ci/perf-budgets.sh` (the "iPhone performance budgets" job, and the Mac half of "Apple lint, core tests and Mac performance budgets").
+- iPhone (simulator) and Mac Release builds: first frame (median of 7 launches) and physical footprint after launch, by `macos/ci/perf-budgets.sh` (the "iPhone performance budgets" job, and the Mac half of "iOS unit test build and Mac performance budgets").
 - Windows and Linux release builds: first frame (median of 7 launches) and working set after launch, by `windows/ci/perf-budgets.ps1` and `linux/ci/perf-budgets.sh` (the "Windows/Linux performance budgets" jobs).
 - Android release builds (phone and watch) are shrunk by R8. Code reached only by reflection or by name needs a keep rule in `app/proguard-rules.pro` or `wear/proguard-rules.pro`; the "Android R8 smoke test" jobs (one per design) run `android/ci/shrunk-smoke.sh`, which opens every design and screen on a debug build shrunk by those rules (`-PshrinkDebug=true`) and fails on a crash.
 - Wire payloads (widget, Wear, live monitor): `android/tests/PayloadBudgetSelfTest.java`, reported on each PR by the "Payload budgets" job.
