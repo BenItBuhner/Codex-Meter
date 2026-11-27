@@ -58,6 +58,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v2.9.0-alpha.38  # TEMP: exercise the release path on the PR
+          SHA: 797e011f73b106eb0f20cf608f328aa2c0869c97
         run: |
           if [[ -x ../.github/scripts/release-tested.sh ]]; then
             ../.github/scripts/release-tested.sh ci.yml
@@ -96,6 +98,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v2.9.0-alpha.38  # TEMP: exercise the release path on the PR
+          SHA: 797e011f73b106eb0f20cf608f328aa2c0869c97
         run: |
           if [[ -x ../.github/scripts/release-tested.sh ]]; then
             ../.github/scripts/release-tested.sh ci.yml
