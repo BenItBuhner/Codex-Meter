@@ -153,7 +153,13 @@ jobs:
             local name="$1" id="$2" label="$3" event="$4" state="$5"
             adb shell am set-standby-bucket $PKG active || true
             adb shell cmd appops set $PKG RUN_ANY_IN_BACKGROUND allow || true
-            seed --es open none --es select "$id" --es sessions off --es diagnostics on --es mode android_live_update --es monitor start
+            # Start the monitor; on a just-booted emulator the first start can be lost, so
+            # wait for the notification and try again.
+            for attempt in 1 2 3; do
+              seed --es open none --es select "$id" --es sessions off --es diagnostics on --es mode android_live_update --es monitor start
+              (( $(record | grep -c NotificationRecord) > 0 )) && break
+              sleep 3
+            done
             adb shell input keyevent HOME; sleep 2
             case "$state" in
               killed) adb shell am kill $PKG; sleep 2 ;;
