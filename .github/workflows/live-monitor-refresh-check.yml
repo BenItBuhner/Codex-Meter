@@ -172,11 +172,16 @@ jobs:
             shot "$name-after-tap" 0
             # A fetch that fails fast can put the button back before this look, so the post
             # the tap made is read from the app's own log as well.
-            check "$name" "button says Refreshing" \
-              "$( (grep -q 'Refreshing' "$OUT/record-$name-tapped.txt" \
-                  || { adb logcat -d > "$OUT/logcat-$name.txt";
-                       grep -q 'Posting live monitor.*refreshing=true' "$OUT/logcat-$name.txt"; }) \
-                  && echo 1 || echo 0)"
+            # A cold start (killed or restricted app) can take a few seconds to reach it.
+            local refreshing=0
+            grep -q 'Refreshing' "$OUT/record-$name-tapped.txt" && refreshing=1
+            for i in $(seq 1 10); do
+              (( refreshing )) && break
+              adb logcat -d > "$OUT/logcat-$name.txt"
+              grep -q 'Posting live monitor.*refreshing=true' "$OUT/logcat-$name.txt" \
+                && refreshing=1 || sleep 1
+            done
+            check "$name" "button says Refreshing" "$refreshing"
             local fetched=0
             for i in $(seq 1 40); do
               (( $(events "$event") > before )) && { fetched=1; break; }
