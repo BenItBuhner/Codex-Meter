@@ -21,9 +21,12 @@ dependencyResolutionManagement {
         maven("https://maven-central.storage-download.googleapis.com/maven2/")
         mavenCentral()
         maven("https://jitpack.io")
-        // skiko (Skia for the JVM and Android), which Glassé's kit draws with
-        maven("https://packages.jetbrains.team/maven/p/cmp/dev") {
-            content { includeGroup("org.jetbrains.skiko") }
+        // skiko (Skia for the JVM and Android), which Glassé's kit draws with. Only JetBrains' repository
+        // has skiko-android 0.156.1, so skiko never asks the repositories above: on a cold cache Gradle
+        // tried Central first and failed the whole build on Central's HTTP 429 instead of its usual 404.
+        exclusiveContent {
+            forRepository { maven("https://packages.jetbrains.team/maven/p/cmp/dev") }
+            filter { includeGroup("org.jetbrains.skiko") }
         }
         maven("https://maven.pkg.github.com/tribalfs/oneui-design") {
             credentials {
