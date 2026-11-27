@@ -163,14 +163,18 @@ jobs:
                 adb shell am kill $PKG; sleep 2 ;;
             esac
             local before; before=$(events "$event")
+            adb logcat -c
             local tapped=0
             tap_refresh "$name" "$label" && tapped=1
             check "$name" "Refresh button tapped" "$tapped"
             sleep 1.2
             record > "$OUT/record-$name-tapped.txt"
             shot "$name-after-tap" 0
+            # A fetch that fails fast can put the button back before this look, so the post
+            # the tap made is read from the app's own log as well.
             check "$name" "button says Refreshing" \
-              "$(grep -q 'Refreshing' "$OUT/record-$name-tapped.txt" && echo 1 || echo 0)"
+              "$( (grep -q 'Refreshing' "$OUT/record-$name-tapped.txt" \
+                  || adb logcat -d | grep -q 'Posting live monitor.*refreshing=true') && echo 1 || echo 0)"
             local fetched=0
             for i in $(seq 1 40); do
               (( $(events "$event") > before )) && { fetched=1; break; }

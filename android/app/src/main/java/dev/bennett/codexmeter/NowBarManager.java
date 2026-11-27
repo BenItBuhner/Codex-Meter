@@ -738,6 +738,7 @@ public final class NowBarManager {
                 + " allowed=" + canPostPromotedNotifications(context)
                 + " legacyColorizedFallback=" + legacyColorizedFallback
                 + " preview=" + preview + " remaining=" + remaining
+                + " refreshing=" + isRefreshing(context, now)
                 + " focusCritical=" + focusCritical);
         DiagnosticLog.info(context, "now_bar", "notification_posting",
                 "display_mode", displayMode,
