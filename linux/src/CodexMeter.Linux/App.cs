@@ -45,7 +45,7 @@ public sealed class App
         AddAction("install-update", () =>
         {
             window?.ShowAndActivate();
-            window?.Navigate("settings");
+            window?.OpenUpdates();
             if (State?.Updater is { Status: UpdateStatus.Available } updater) _ = updater.DownloadAndInstallAsync();
         });
     }
@@ -109,6 +109,7 @@ public sealed class App
                     "Install it from Settings → Updates. The download is checked against the release's SHA-256 checksums.",
                     "update"));
                 updater.QuitRequested += Quit;
+                updater.IsShowingUpdate = () => window?.ShowsUpdate == true;
             }
 
             if (options.ScreenshotDirectory is null)

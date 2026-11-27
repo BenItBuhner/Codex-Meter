@@ -62,7 +62,8 @@ public sealed class LinuxUpdateInstaller : IUpdateInstaller
         var directory = Path.GetDirectoryName(target)!;
         // Same folder, so the final rename is atomic: the old file is replaced in one step or not at all.
         var temp = Path.Combine(directory, $".{Path.GetFileName(target)}.update-{Environment.ProcessId}");
-        File.Copy(update.Path, temp, overwrite: true);
+        // A rename when the download sits on the same disk (no second 60 MB write); otherwise a copy.
+        File.Move(update.Path, temp, overwrite: true);
         File.SetUnixFileMode(temp, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
             | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
         File.Move(temp, target, overwrite: true);

@@ -1,5 +1,6 @@
 package dev.bennett.codexmeter;
 
+import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -8,13 +9,62 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import java.lang.ref.WeakReference;
+import java.util.function.BooleanSupplier;
 
 /** Posts a one-shot “update available” notification with Open and Update actions. */
 public final class UpdateNotificationManager {
     static final String CHANNEL_ID = "codex_update_available";
     static final int NOTIFICATION_ID = 73450;
 
+    /** The screen in front and whether it shows the available update right now. */
+    private static final class OnScreen {
+        final WeakReference<Activity> activity;
+        final BooleanSupplier showsUpdate;
+
+        OnScreen(Activity activity, BooleanSupplier showsUpdate) {
+            this.activity = new WeakReference<>(activity);
+            this.showsUpdate = showsUpdate;
+        }
+    }
+
+    private static volatile OnScreen onScreen;
+
     private UpdateNotificationManager() {
+    }
+
+    /**
+     * {@code screen} came to the front. {@code showsUpdate} says whether it is showing the update
+     * at that moment (the Priority page's update card, Settings › Updates, the update page); while it
+     * does, a check that finds the update stays quiet instead of posting a notification about what
+     * is already on screen. Pair with {@link #screenPaused}.
+     */
+    public static void screenResumed(Activity screen, BooleanSupplier showsUpdate) {
+        onScreen = new OnScreen(screen, showsUpdate);
+    }
+
+    public static void screenPaused(Activity screen) {
+        OnScreen current = onScreen;
+        if (current != null && current.activity.get() == screen) {
+            onScreen = null;
+        }
+    }
+
+    /** True while the app is open on a screen that shows the available update. */
+    static boolean updateOnScreen() {
+        OnScreen current = onScreen;
+        if (current == null) {
+            return false;
+        }
+        Activity activity = current.activity.get();
+        if (activity == null || activity.isFinishing()) {
+            return false;
+        }
+        try {
+            return current.showsUpdate.getAsBoolean();
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     public static void ensureChannel(Context context) {
@@ -47,6 +97,12 @@ public final class UpdateNotificationManager {
         }
         String already = UpdatePreferences.notifiedVersion(app);
         if (update.version.equals(already)) {
+            return;
+        }
+        if (updateOnScreen()) {
+            // Already showing in the app (a pull to refresh on Priority, Check now in Updates):
+            // the person is looking at it, so no notification now or for this version later.
+            UpdatePreferences.setNotifiedVersion(app, update.version);
             return;
         }
         if (post(app, update)) {

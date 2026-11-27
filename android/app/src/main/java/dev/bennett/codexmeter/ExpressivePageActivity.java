@@ -18,6 +18,25 @@ public final class ExpressivePageActivity extends AppCompatActivity {
         Intent page = Ui.intentExtra(getIntent(), EXTRA_INTENT);
         if (page == null || !ExpressivePages.show(this, page)) {
             finish();
+            return;
         }
+        this.updatePage = page.getComponent() != null
+                && UpdateActivity.class.getName().equals(page.getComponent().getClassName());
+    }
+
+    private boolean updatePage;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (this.updatePage) {
+            UpdateNotificationManager.screenResumed(this, () -> true);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        UpdateNotificationManager.screenPaused(this);
+        super.onPause();
     }
 }

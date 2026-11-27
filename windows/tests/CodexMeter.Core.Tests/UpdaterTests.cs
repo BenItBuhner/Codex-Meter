@@ -252,6 +252,19 @@ public class UpdateClientTests
             var good = await client.DownloadAsync(release, ReleaseFeedTests.WinX64, dir);
             Assert.Equal(digest, good.Sha256);
             Assert.Equal(payload, await File.ReadAllBytesAsync(good.Path));
+
+            // A verified copy already on disk is used again: only the checksum file is asked for.
+            github.Requests.Clear();
+            var reused = await client.DownloadAsync(release, ReleaseFeedTests.WinX64, dir);
+            Assert.Equal(digest, reused.Sha256);
+            Assert.Equal([release.Checksums.Url], github.Requests);
+
+            // A damaged copy is downloaded again.
+            await File.WriteAllBytesAsync(good.Path, new byte[payload.Length]);
+            github.Requests.Clear();
+            var fresh = await client.DownloadAsync(release, ReleaseFeedTests.WinX64, dir);
+            Assert.Equal(payload, await File.ReadAllBytesAsync(fresh.Path));
+            Assert.Contains(release.Download.Url, github.Requests);
         }
         finally
         {
@@ -270,6 +283,29 @@ public class UpdateClientTests
             Installed = update;
             return Task.FromResult(InstallOutcome.QuitToFinish);
         }
+    }
+
+    [Fact]
+    public async Task NoNotificationWhileTheUpdateIsOnScreen()
+    {
+        var github = new FakeGitHub();
+        github.Json($"{Api}?per_page={UpdateClient.RecentCount}", new[] { ReleaseFeedTests.Release("v2.9.0-alpha.28", true) });
+        github.Json(Api + "/latest", new { message = "Not Found" }, HttpStatusCode.NotFound);
+        var prefs = new UpdatePreferences();
+        var updater = new DesktopUpdater(new UpdateClient("test", github), new Installer(Path.GetTempPath()), "2.9.0-alpha.27", () => prefs, f => prefs = f(prefs))
+        {
+            IsShowingUpdate = () => true, // on Priority, or in Settings → Updates
+        };
+        var found = new List<string>();
+        updater.UpdateFound += r => found.Add(r.Version.Normalized);
+        await updater.CheckAsync(manual: false);
+        Assert.Equal(UpdateStatus.Available, updater.Status);
+        Assert.Empty(found);
+        // Seen on screen, so it is not announced later either.
+        Assert.Equal("2.9.0-alpha.28", prefs.LastNotified);
+        updater.IsShowingUpdate = () => false;
+        await updater.CheckAsync(manual: false);
+        Assert.Empty(found);
     }
 
     [Fact]

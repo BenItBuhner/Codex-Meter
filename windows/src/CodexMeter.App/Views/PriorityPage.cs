@@ -2,6 +2,7 @@ using CodexMeter.App.Assets;
 using CodexMeter.App.Controls;
 using CodexMeter.Core.Models;
 using CodexMeter.Core.Services;
+using CodexMeter.Core.Updates;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -16,11 +17,13 @@ namespace CodexMeter.App.Views;
 public sealed class PriorityPage : PageBase
 {
     private readonly StackPanel content = new() { Spacing = 4 };
+    private readonly StackPanel update = new();
     private DispatcherTimer? ticker;
 
     public PriorityPage() : base(1000)
     {
         Body.Children.Add(PageTitle("Priority", "PriorityTitle"));
+        Body.Children.Add(update);
         Body.Children.Add(content);
     }
 
@@ -32,6 +35,8 @@ public sealed class PriorityPage : PageBase
         ticker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         ticker.Tick += (_, _) => Render();
         ticker.Start();
+        if (State.Updater is { } updater) updater.Changed += RenderUpdate;
+        RenderUpdate();
         Render();
         _ = State.RefreshAllAsync(force: false);
         _ = State.RefreshServiceAsync(foreground: true);
@@ -44,6 +49,30 @@ public sealed class PriorityPage : PageBase
         State.ServiceChanged -= OnServiceChanged;
         ticker?.Stop();
         ticker = null;
+        if (State.Updater is { } updater) updater.Changed -= RenderUpdate;
+    }
+
+    /// <summary>
+    /// The update card, as on Android: only here on Priority, at the top, while an update is out.
+    /// Review update opens Settings → Updates (channel, release notes, download and install).
+    /// </summary>
+    private void RenderUpdate()
+    {
+        update.Children.Clear();
+        if (State.Updater is not { CardTitle: { } title } updater) return;
+        var stack = new StackPanel { Spacing = 8 };
+        stack.Children.Add(Cards.Header("\uE896", title));
+        stack.Children.Add(Cards.Text(updater.CardDetail, "SecondaryTextStyle"));
+        if (updater.Status is UpdateStatus.Downloading or UpdateStatus.Installing)
+            stack.Children.Add(new ProgressBar { Minimum = 0, Maximum = 1, Value = updater.Progress, IsIndeterminate = updater.Status == UpdateStatus.Installing });
+        var review = new Button { Content = "Review update", Style = Cards.Style("AccentButtonStyle"), Margin = new Thickness(0, 4, 0, 0) };
+        AutomationProperties.SetAutomationId(review, "PriorityUpdateButton");
+        review.Click += (_, _) => App.Current?.Window?.OpenUpdates();
+        stack.Children.Add(review);
+        var card = Cards.Card(stack, "PriorityUpdateCard");
+        AutomationProperties.SetName(card, title);
+        card.Margin = new Thickness(0, 0, 0, 12);
+        update.Children.Add(card);
     }
 
     private void OnChanged(Core.Providers.UsageProvider _) => Render();

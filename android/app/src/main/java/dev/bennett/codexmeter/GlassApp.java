@@ -65,7 +65,7 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
             };
     private boolean refreshing;
     private Nav nav;
-    private String shownPage = "root";
+    private volatile String shownPage = "root";
     private GlassDialog dialog;
     private GlassModel.Dialog model;
     private String dialogScreen;
@@ -313,6 +313,20 @@ final class GlassApp implements GlassSource, GlassScreens.Host {
         if (landing == null && CodexGlass.SETTINGS.equals(glasse.getHost().app)) {
             glasse.getHost().close();
         }
+    }
+
+    /**
+     * Whether the update is on screen: the dashboard when {@code cardOnTab} (its tab carries the
+     * update card), or Settings on its Updates page or the update page.
+     */
+    boolean showsUpdate(boolean cardOnTab) {
+        String app = glasse.getHost().app;
+        if (app == null) {
+            return landing == null && cardOnTab;
+        }
+        String page = shownPage;
+        return CodexGlass.SETTINGS.equals(app) && ("updates".equals(page)
+                || (GlassScreens.PREFIX + "update").equals(page));
     }
 
     /** Tells the screens to draw again from the app's current state. */

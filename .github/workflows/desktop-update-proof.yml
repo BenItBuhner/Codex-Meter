@@ -118,7 +118,14 @@ jobs:
         run: |
           $log = Join-Path $env:LOCALAPPDATA 'CodexMeter/codexmeter.log'
           if (Test-Path $log) { Get-Content $log } else { 'No app log.' }
-          Get-ChildItem (Join-Path $env:LOCALAPPDATA 'CodexMeter\updates') -Filter *.log -ErrorAction SilentlyContinue | ForEach-Object { "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
+          Get-ChildItem (Join-Path $env:LOCALAPPDATA 'CodexMeter\updates') -Filter *.log -ErrorAction SilentlyContinue | ForEach-Object {
+            "== $($_.Name): where the time goes"
+            # Setup's own milestones, to time each in-app update step (start, waiting, closing apps, files, done).
+            Select-String -Path $_.FullName -Pattern 'Log opened|Setup version|Waiting for Codex|has quit|Restart Manager|close applications|Starting the installation|Installation process succeeded|Log closed' |
+              Select-Object -First 30 | ForEach-Object { $_.Line }
+            "== $($_.Name): last lines"
+            Get-Content $_.FullName -Tail 15
+          }
 
       - uses: actions/upload-artifact@v7
         if: always()

@@ -71,6 +71,13 @@ public sealed class DesktopUpdater(UpdateClient client, IUpdateInstaller install
     /// <summary>A new version worth a notification (each version once, when notifications are on).</summary>
     public event Action<ReleaseInfo>? UpdateFound;
 
+    /// <summary>
+    /// True while the app is on a screen that already shows the available update (Priority's
+    /// update card, Settings → Updates). An automatic check that finds it then stays quiet rather
+    /// than notifying about what is on screen; the version still counts as announced.
+    /// </summary>
+    public Func<bool>? IsShowingUpdate { get; set; }
+
     /// <summary>The installer is running and this copy has to close.</summary>
     public event Action? QuitRequested;
 
@@ -117,7 +124,7 @@ public sealed class DesktopUpdater(UpdateClient client, IUpdateInstaller install
             if (update is not null && preferences().Notify && preferences().LastNotified != update.Version.Normalized)
             {
                 savePreferences(p => p with { LastNotified = update.Version.Normalized });
-                if (!manual) UpdateFound?.Invoke(update);
+                if (!manual && !ShowingUpdate()) UpdateFound?.Invoke(update);
             }
         }
         catch (UpdateException error)
@@ -191,11 +198,33 @@ public sealed class DesktopUpdater(UpdateClient client, IUpdateInstaller install
 
     public void Cancel() => work?.Cancel();
 
+    private bool ShowingUpdate()
+    {
+        try { return IsShowingUpdate?.Invoke() ?? false; }
+        catch (Exception) { return false; }
+    }
+
     private void Fail(string message)
     {
         Error = message;
         Status = UpdateStatus.Failed;
     }
+
+    /// <summary>The Priority page's update card title (Android's wording), or null with no update to show.</summary>
+    public string? CardTitle => Available is not { } release ? null
+        : IsReturnToStable ? $"Return to Codex Meter {release.Version.Normalized}"
+        : $"Codex Meter {release.Version.Normalized} is ready";
+
+    /// <summary>The update card's line: what is happening, or what installing does.</summary>
+    public string CardDetail => Status switch
+    {
+        UpdateStatus.Downloading => $"Downloading · {Progress:P0}",
+        UpdateStatus.Installing => "Verified. Installing the update…",
+        UpdateStatus.Failed => Error ?? "The update didn't finish.",
+        _ when IsReturnToStable => "You're back on the stable channel. The stable release installs in place over this alpha build after checksum verification.",
+        _ when Available?.Prerelease == true => "A signed alpha release is available. It's checked against the release's SHA-256 checksums before it installs.",
+        _ => "A signed GitHub release is available. It's checked against the release's SHA-256 checksums before it installs.",
+    };
 
     /// <summary>One line for Settings: what the updater is doing or found.</summary>
     public string StatusText => Status switch

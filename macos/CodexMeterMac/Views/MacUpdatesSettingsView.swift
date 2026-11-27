@@ -67,6 +67,8 @@ struct MacUpdatesSettingsView: View {
                 Text("Alpha gets new features first, with less testing. Each check reads at most two small responses from GitHub.")
             }
         }
+        .onAppear { updater.updatesOnScreen = true }
+        .onDisappear { updater.updatesOnScreen = false }
         .confirmationDialog("Switch to alpha updates?", isPresented: $confirmingAlpha) {
             Button("Use Alpha") { updater.channel = .alpha }
         } message: {
@@ -111,6 +113,39 @@ struct MacCheckForUpdatesButton: View {
             MacSettingsTab.shared.selected = "updates"
             openSettings()
             Task { await MacUpdater.shared.check(manual: true) }
+        }
+    }
+}
+
+/// Priority's update card, as on Android: only on Priority, at the top, while an update is out.
+/// Review Update opens Settings on the Updates tab (channel, notes, download and install).
+struct MacPriorityUpdateCard: View {
+    @State private var updater = MacUpdater.shared
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        if let title = updater.cardTitle {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(title, systemImage: "arrow.down.circle")
+                    .font(.headline)
+                Text(updater.cardDetail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if updater.status == .downloading || updater.status == .installing {
+                    ProgressView(value: updater.status == .installing ? nil : updater.progress)
+                }
+                Button("Review Update") {
+                    MacSettingsTab.shared.selected = "updates"
+                    openSettings()
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("priority-update-review")
+            }
+            .padding(AppChrome.cardPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface()
+            .accessibilityIdentifier("priority-update")
         }
     }
 }
