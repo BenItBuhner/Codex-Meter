@@ -51,9 +51,9 @@ while IFS= read -r f; do
       .github/workflows/ci.yml|.github/scripts/ci-areas*.sh) everything "CI definition $f" ;;
       release-invariants.sh|header-case.sh|run-tests.sh|lint.sh|build.sh|.editorconfig) everything "shared file $f" ;;
       android/tests/fixtures/*) everything "shared fixture $f" ;;
-      # Other workflows and their data, and the macOS wait script, run outside the gate.
+      # Other workflows and their data, and the scripts only they use, run outside the gate.
       .github/workflows/*|.github/app-session-shots/*|.github/open-routing/*|.github/update-proof/*) ;;
-      .github/scripts/wait-for-gate-macos.sh|.github/dependabot.yml) ;;
+      .github/scripts/wait-for-gate-macos.sh|.github/scripts/release-tested.sh|.github/dependabot.yml) ;;
       .github/scripts/payload.sh) turn_on android ;;
       .github/*) everything "unclassified workflow file $f" ;;
       .swiftlint.yml) turn_on apple ;;

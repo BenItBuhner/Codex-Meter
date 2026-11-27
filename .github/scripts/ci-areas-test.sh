@@ -32,7 +32,7 @@ check gate "apple windows linux" ios/CodexMeterCore/Tests/CodexMeterCoreTests/Fi
 check gate "android windows" android/app/build.gradle.kts windows/README.md windows/installer/setup.iss
 check gate "none" README.md docs/ci.md LICENSE
 check gate "none" android/README.md windows/README.md ios/README.md
-check gate "none" .github/workflows/ios-ci.yml .github/scripts/wait-for-gate-macos.sh
+check gate "none" .github/workflows/ios-ci.yml .github/scripts/wait-for-gate-macos.sh .github/scripts/release-tested.sh
 check gate "all" .github/workflows/ci.yml
 check gate "all" android/tests/fixtures/codex-usage.json
 check gate "all" release-invariants.sh
