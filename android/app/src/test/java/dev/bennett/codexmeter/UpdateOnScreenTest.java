@@ -8,14 +8,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.Robolectric;
+import org.robolectric.android.controller.ActivityController;
 import org.robolectric.RobolectricTestRunner;
 
 /** The update notification stays quiet only while the screen in front shows the update. */
 @RunWith(RobolectricTestRunner.class)
 public final class UpdateOnScreenTest {
-    private final Activity first = Robolectric.buildActivity(Activity.class).setup().get();
-    private final Activity second = Robolectric.buildActivity(Activity.class).setup().get();
+    private final Activity first = ActivityController.of(new Activity()).setup().get();
+    private final Activity second = ActivityController.of(new Activity()).setup().get();
 
     @After
     public void tearDown() {
