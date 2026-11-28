@@ -47,6 +47,9 @@ public enum ClaudeUsageParser {
         var weekly: UsageWindow?
         var additionalLimits: [UsageLimit] = []
         var seen = Set<String>()
+        // Claude sends the session row (or five_hour) with no number while no session is running;
+        // that is a 5-hour limit with nothing used, not a plan without one.
+        var sessionListed = JSONSupport.object(root["five_hour"]) != nil
 
         for item in JSONSupport.array(root["limits"]) ?? [] {
             guard let row = JSONSupport.object(item) else { continue }
@@ -56,6 +59,7 @@ public enum ClaudeUsageParser {
             // An "All models" scope repeats the weekly meter; Claude Code skips it too.
             if isAllModels(scopeObject) { continue }
             let scope = scopeName(scopeObject)
+            if scope.isEmpty, kind == "session" { sessionListed = true }
             guard let window = meter(row, seconds: windowSeconds(kind: kind, group: group)) else {
                 continue
             }
@@ -86,6 +90,10 @@ public enum ClaudeUsageParser {
         }
         if weekly == nil {
             weekly = parseWindow(root["seven_day"], seconds: sevenDaySeconds)
+        }
+        if fiveHour == nil, sessionListed {
+            fiveHour = UsageWindow(usedPercent: 0, windowSeconds: fiveHourSeconds,
+                                   resetAfterSeconds: 0, resetAt: nil)
         }
         let fableID = limitIDPrefix + "weekly_scoped_fable"
         if !seen.contains(fableID) {

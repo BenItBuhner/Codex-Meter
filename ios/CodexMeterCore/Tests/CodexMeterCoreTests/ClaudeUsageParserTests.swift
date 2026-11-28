@@ -185,6 +185,29 @@ final class ClaudeUsageParserTests: XCTestCase {
         XCTAssertTrue(snapshot.hasDisplayableData)
     }
 
+    /// Pro/Max with no session running: the session row (or five_hour) comes with no number.
+    /// That is a 5-hour limit with nothing used, not "No 5-hour limit on this plan".
+    func testIdleSessionIsAnEmptyFiveHourLimit() throws {
+        let fromLimits = try ClaudeUsageParser.parse(
+            """
+            {"limits": [{"kind": "session", "group": "session", "percent": null},
+                        {"kind": "weekly_all", "group": "weekly", "percent": 20}]}
+            """,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(fromLimits.fiveHour?.usedPercent, 0)
+        XCTAssertEqual(fromLimits.fiveHour?.windowSeconds, 18_000)
+        XCTAssertNil(fromLimits.fiveHour?.resetAt)
+        XCTAssertEqual(fromLimits.weekly?.usedPercent, 20)
+
+        let legacy = try ClaudeUsageParser.parse(
+            #"{"five_hour": {"utilization": null, "resets_at": null}, "seven_day": {"utilization": 5}}"#,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(legacy.fiveHour?.usedPercent, 0)
+        XCTAssertFalse(legacy.limitReached)
+    }
+
     func testMalformedRootThrows() {
         XCTAssertThrowsError(try ClaudeUsageParser.parse("[]", fetchedAt: fetchedAt))
         XCTAssertThrowsError(try ClaudeUsageParser.parse("not json", fetchedAt: fetchedAt))

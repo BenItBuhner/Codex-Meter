@@ -783,7 +783,7 @@ public final class SignInActivity extends AppCompatActivity implements GlassApp.
             String failure = null;
             try {
                 AuthTokens tokens = connect.run();
-                SecureTokenStore.save(app, provider, tokens);
+                SecureTokenStore.saveSignIn(app, provider, tokens);
                 if (!tokens.email.isEmpty()) ProviderPreferences.setEmail(app, provider, tokens.email);
                 try {
                     ProviderUsageApi.refreshAndCache(app, provider);

@@ -199,7 +199,7 @@ public final class OAuthService extends Service {
                         ? ClaudeUsageApi.exchangeCode(this, code, redirectUri, pkce.verifier,
                                 pkce.state)
                         : OAuthClient.exchangeCode(this, code, redirectUri, pkce.verifier);
-                SecureTokenStore.save(this, flowProvider, tokens);
+                SecureTokenStore.saveSignIn(this, flowProvider, tokens);
                 credentialsCommitted = true;
                 AppPreferences.setOAuthPending(this, false, "");
 
@@ -277,7 +277,7 @@ public final class OAuthService extends Service {
             broadcastReady(authUrl);
             AuthTokens tokens = CursorUsageApi.pollForTokens(this, login, this::cancelled);
             updateNotification("Securing your Cursor session…", null);
-            SecureTokenStore.save(this, flowProvider, tokens);
+            SecureTokenStore.saveSignIn(this, flowProvider, tokens);
             credentialsCommitted = true;
             AppPreferences.setOAuthPending(this, false, "");
             broadcastResult(true, "Signed in successfully.");
@@ -385,7 +385,7 @@ public final class OAuthService extends Service {
                 tokens = pollDevice(client, session, code);
             }
             deviceCode = null;
-            SecureTokenStore.save(this, flowProvider, tokens);
+            SecureTokenStore.saveSignIn(this, flowProvider, tokens);
             credentialsCommitted = true;
             if (!tokens.email.isEmpty()) {
                 ProviderPreferences.setEmail(this, flowProvider, tokens.email);
