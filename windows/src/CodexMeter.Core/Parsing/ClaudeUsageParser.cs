@@ -162,15 +162,15 @@ public static partial class ClaudeUsageParser
     private static partial Regex ZoneSuffix();
 
     /// <summary>
-    /// ISO-8601 with a zone (fractional seconds truncated), or epoch seconds as a number.
-    /// Unparseable values become null.
+    /// ISO-8601 (fractional seconds truncated; a time with no zone is UTC with its time of day),
+    /// or epoch seconds or milliseconds as a number. Unparseable values become null.
     /// </summary>
     public static DateTimeOffset? ParseResetDate(JsonNode? value)
     {
         if (value is JsonValue v && v.GetValueKind() == JsonValueKind.Number)
         {
-            var seconds = v.GetValue<double>();
-            return double.IsFinite(seconds) && seconds > 0 ? DateTimeOffset.FromUnixTimeMilliseconds((long)(seconds * 1000)) : null;
+            var seconds = ProviderUsageParsers.EpochSeconds(v);
+            return seconds > 0 ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
         }
         if (value is not JsonValue s || s.GetValueKind() != JsonValueKind.String) return null;
         return ParseIsoDate(s.GetValue<string>());
@@ -180,9 +180,11 @@ public static partial class ClaudeUsageParser
     {
         var text = raw?.Trim() ?? "";
         if (text.Length == 0 || text.Equals("null", StringComparison.OrdinalIgnoreCase)) return null;
-        var t = text.IndexOfAny(['T', 't']);
-        if (t < 0 || !ZoneSuffix().IsMatch(text)) return null;
-        if (DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsed)
+        if (text.IndexOfAny(['T', 't']) < 0) return null;
+        // A time with no zone is UTC with its time of day, never the machine's local time.
+        var styles = ZoneSuffix().IsMatch(text) ? DateTimeStyles.AdjustToUniversal
+            : DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal;
+        if (DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, styles, out var parsed)
             && parsed.ToUnixTimeSeconds() > 0)
             return DateTimeOffset.FromUnixTimeSeconds(parsed.ToUnixTimeSeconds());
         return null;

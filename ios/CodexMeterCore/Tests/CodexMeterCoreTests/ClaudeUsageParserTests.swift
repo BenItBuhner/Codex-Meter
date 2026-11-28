@@ -165,6 +165,21 @@ final class ClaudeUsageParserTests: XCTestCase {
         )
     }
 
+    /// A reset with no zone is UTC with its time of day; a number is epoch seconds or milliseconds.
+    func testResetTimesWithNoZoneOrAsNumbersKeepTheirTime() throws {
+        let expected = date("2026-12-01T15:30:00Z")
+        XCTAssertEqual(ClaudeUsageParser.parseResetDate("2026-12-01T15:30:00"), expected)
+        XCTAssertEqual(ClaudeUsageParser.parseResetDate("2026-12-01T15:30:00.250"), expected)
+        XCTAssertEqual(ClaudeUsageParser.parseResetDate(NSNumber(value: 1_796_139_000)), expected)
+        XCTAssertEqual(ClaudeUsageParser.parseResetDate(NSNumber(value: 1_796_139_000_000 as Int64)), expected)
+        let snapshot = try ClaudeUsageParser.parse(
+            #"{"five_hour": {"utilization": 30, "resets_at": 1796139000000}, "seven_day": {"utilization": 5, "resets_at": "2026-12-01T15:30:00"}}"#,
+            fetchedAt: fetchedAt
+        )
+        XCTAssertEqual(snapshot.fiveHour?.resetAt, expected)
+        XCTAssertEqual(snapshot.weekly?.resetAt, expected)
+    }
+
     /// Verified Ultra (October 2026): `five_hour` is null and `limits` has no session row.
     func testUltraWithoutFiveHourLimitStillLoads() throws {
         let body = #"""

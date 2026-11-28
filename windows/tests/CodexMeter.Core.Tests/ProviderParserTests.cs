@@ -260,6 +260,11 @@ public class ProviderParserTests
         Assert.Equal(38, snapshot.Monthly?.UsedPercent);
         Assert.Equal(["Grok Code"], snapshot.AdditionalLimits.Select(l => l.Name));
         Assert.Equal("$5.00", snapshot.UsageCredits?.Balance);
+        // Grok's percentages are points: 1 is 1%, not a fraction meaning 100%.
+        var light = P.Grok("""{"config":{"usagePercent":1,"productUsage":[{"product":"grok_code","usagePercent":0.4}]}}""", Now);
+        Assert.Equal(1, light.Monthly?.UsedPercent);
+        Assert.False(light.LimitReached);
+        Assert.Equal(0, light.AdditionalLimits[0].Primary?.UsedPercent);
     }
 
     [Fact]
@@ -343,6 +348,11 @@ public class ProviderParserTests
         var go = P.OpencodeGo("""{"usage":{"rolling":{"usagePercent":33,"resetInSec":600},"weekly":{"usedPercent":12,"resetAt":"2026-09-27T00:00:00Z"},"monthly":{"percent":4}}}""", Now);
         Assert.Equal(33, go.FiveHour?.UsedPercent);
         Assert.Equal(NowSeconds + 600, ResetSeconds(go.FiveHour));
+        var lightGo = P.OpencodeGo("""{"usage":{"rolling":{"utilization":1,"resetInSec":600},"weekly":{"usagePercent":0.5}}}""", Now);
+        // OpenCode Go reads 1 as 1%, not a fraction.
+        Assert.Equal(1, lightGo.FiveHour?.UsedPercent);
+        Assert.Equal(1, lightGo.Weekly?.UsedPercent);
+        Assert.False(lightGo.LimitReached);
         Assert.Equal(12, go.Weekly?.UsedPercent);
         Assert.Equal(4, go.Monthly?.UsedPercent);
         Assert.True(Core.Services.AugmentClient.IsAugmentTenant("https://d1.api.augmentcode.com/"));
@@ -434,6 +444,14 @@ public class ProviderParserTests
         Assert.Equal(2, legacy.Weekly?.UsedPercent);
         var counter = P.Synthetic("""{"subscription":{"limit":135,"requests":27,"renewsAt":"2026-09-21T15:00:00Z"}}""", Now);
         Assert.Equal(20, counter.FiveHour?.UsedPercent);
+        // Older fractions over 1 are over the limit; current percentages are points, so 1 is 1%.
+        var over = P.Synthetic("""{"rollingFiveHourLimit":{"percentUsed":1.2},"weeklyTokenLimit":{"percentRemaining":1}}""", Now);
+        Assert.Equal(100, over.FiveHour?.UsedPercent);
+        Assert.True(over.LimitReached);
+        Assert.Equal(0, over.Weekly?.UsedPercent);
+        var lightSearch = P.Synthetic("""{"planWeeklyLimit":{"percentRemaining":99},"search":{"hourly":{"percentUsed":1}}}""", Now);
+        Assert.Equal(1, lightSearch.Weekly?.UsedPercent);
+        Assert.Equal(1, lightSearch.AdditionalLimits[0].Primary?.UsedPercent);
         Assert.False(P.Synthetic("{}", Now).HasDisplayableData);
     }
 
