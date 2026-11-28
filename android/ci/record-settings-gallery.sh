@@ -32,8 +32,11 @@ shot() {
 open_page() {
   adb shell am force-stop "$PKG"
   adb shell input keyevent KEYCODE_WAKEUP
+  # Reset credits opens with running-low use on and one use held back for a refill (#214).
+  local extra=()
+  [ "$2" = reset_credits ] && extra=(--ez reset_refill_wait true)
   adb shell am start -W -n "$PKG/.UsagePaceDemoActivity" --es claude_scenario tester \
-    --es codex_plan pro --es design "$1" --es claude_open "settings:$2" >/dev/null
+    --es codex_plan pro --es design "$1" --es claude_open "settings:$2" "${extra[@]}" >/dev/null
 }
 
 scroll_down() {

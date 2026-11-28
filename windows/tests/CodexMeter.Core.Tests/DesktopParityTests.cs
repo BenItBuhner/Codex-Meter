@@ -183,7 +183,7 @@ public sealed class DesktopParityTests
         Assert.False(report.IsEmpty);
     }
 
-    private const string SavedResetsBody = """
+    internal const string SavedResetsBody = """
         {"five_hour":{"utilization":100,"resets_at":"2026-11-16T14:00:00Z"},"seven_day":{"utilization":40,"resets_at":"2026-11-20T00:00:00Z"},
          "cedar_ember":{"eligible":true,"at_limit":true,"next_grant_id":"g_full","cooldown_until":null,
           "grants":[

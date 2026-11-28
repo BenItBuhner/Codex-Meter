@@ -529,6 +529,8 @@ public struct ClaudeResetAutoUse: Sendable, Equatable {
         case wait
         case skipAlreadyTried = "skip_already_tried"
         case skipNoMatchingReset = "skip_no_matching_reset"
+        /// Running low, but that limit refills on its own within the chosen wait.
+        case skipRefillsSoon = "skip_refills_soon"
     }
 
     /// Only a status this fresh may spend a reset.
@@ -540,8 +542,20 @@ public struct ClaudeResetAutoUse: Sendable, Equatable {
     public let attemptKey: String
     public let windowLabel: String
     public let remainingPercent: Int
+    /// For `.skipRefillsSoon`: when that limit refills on its own.
+    public let resetAt: Date?
 
     public var fires: Bool { outcome == .fireExpiring || outcome == .fireLowUsage }
+
+    public init(outcome: Outcome, grant: ClaudeSavedResets.Grant?, attemptKey: String, windowLabel: String,
+                remainingPercent: Int, resetAt: Date? = nil) {
+        self.outcome = outcome
+        self.grant = grant
+        self.attemptKey = attemptKey
+        self.windowLabel = windowLabel
+        self.remainingPercent = remainingPercent
+        self.resetAt = resetAt
+    }
 
     public static func evaluate(
         status: ClaudeSavedResets?,
@@ -553,6 +567,8 @@ public struct ClaudeResetAutoUse: Sendable, Equatable {
         metric: LowUsageAutoUseMetric = .both,
         lastExpiryKey: String?,
         lastLowUsageToken: String?,
+        fiveHourWaitMinutes: Int = LowUsageAutoUse.defaultWaitMinutes,
+        weeklyWaitMinutes: Int = LowUsageAutoUse.defaultWaitMinutes,
         now: Date
     ) -> ClaudeResetAutoUse {
         let waiting = ClaudeResetAutoUse(outcome: .wait, grant: nil, attemptKey: "", windowLabel: "", remainingPercent: -1)
@@ -580,7 +596,9 @@ public struct ClaudeResetAutoUse: Sendable, Equatable {
         if lowUsageEnabled, let usage {
             let low = LowUsageAutoUse.evaluate(snapshot: usage, metric: metric, threshold: threshold,
                                                availableCredits: status.availableCount(at: now),
-                                               lastFiredToken: lastLowUsageToken, now: now)
+                                               lastFiredToken: lastLowUsageToken,
+                                               fiveHourWaitMinutes: fiveHourWaitMinutes,
+                                               weeklyWaitMinutes: weeklyWaitMinutes, now: now)
             if low.fires {
                 guard let grant = status.usableGrant(for: low.windowLabel, at: now) else {
                     return ClaudeResetAutoUse(outcome: .skipNoMatchingReset, grant: nil, attemptKey: low.windowToken,
@@ -592,6 +610,11 @@ public struct ClaudeResetAutoUse: Sendable, Equatable {
             if low.outcome == .skipAlreadyUsed {
                 return ClaudeResetAutoUse(outcome: .skipAlreadyTried, grant: nil, attemptKey: low.windowToken,
                                           windowLabel: low.windowLabel, remainingPercent: low.remainingPercent)
+            }
+            if low.outcome == .skipResetImminent, skipped == nil {
+                return ClaudeResetAutoUse(outcome: .skipRefillsSoon, grant: nil, attemptKey: low.windowToken,
+                                          windowLabel: low.windowLabel, remainingPercent: low.remainingPercent,
+                                          resetAt: low.resetAt)
             }
         }
         return skipped ?? waiting

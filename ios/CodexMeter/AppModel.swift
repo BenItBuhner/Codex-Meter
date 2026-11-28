@@ -1183,7 +1183,14 @@ final class AppModel {
             threshold: settings.lowUsageAutoUseThreshold,
             availableCredits: credits?.availableCount ?? usage?.resetCreditsAvailable,
             lastFiredToken: defaults.string(forKey: Self.lowUsageWindowTokenKey),
+            fiveHourWaitMinutes: settings.lowUsageFiveHourWaitMinutes,
+            weeklyWaitMinutes: settings.lowUsageWeeklyWaitMinutes,
             now: .now
+        )
+        RefillWaitStore.save(
+            RefillWait.after(RefillWaitStore.load(RefillWaitStore.codexKey, defaults: defaults),
+                             decision: decision, now: .now),
+            RefillWaitStore.codexKey, defaults: defaults
         )
         guard decision.fires else { return }
         isRedeemingReset = true
@@ -1274,6 +1281,7 @@ final class AppModel {
     private func clearSessionState() {
         mode = .signedOut
         defaults.set(AppMode.signedOut.rawValue, forKey: Self.modeDefaultsKey)
+        RefillWaitStore.save(nil, RefillWaitStore.codexKey, defaults: defaults)
         usage = nil
         credits = nil
         accountEmail = ""

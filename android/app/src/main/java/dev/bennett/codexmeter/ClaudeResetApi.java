@@ -161,15 +161,24 @@ public final class ClaudeResetApi {
             boolean expiry = ResetAlertPreferences.claudeSavedResetExpiryEnabled(context);
             boolean lowUsage = ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context);
             if (!expiry && !lowUsage) return;
+            long now = System.currentTimeMillis();
             ClaudeResetAutoUse decision = ClaudeResetAutoUse.evaluate(
                     ProviderPreferences.loadSavedResets(context, PROVIDER),
                     ProviderPreferences.loadSnapshot(context, PROVIDER),
                     expiry, ResetAlertPreferences.claudeSavedResetExpiryLeadMillis(context),
                     lowUsage, ResetAlertPreferences.claudeSavedResetThreshold(context),
                     ResetCreditLowUsageAutoUse.METRIC_BOTH,
+                    ResetAlertPreferences.lowUsageWaitMinutes(context, PROVIDER, false),
+                    ResetAlertPreferences.lowUsageWaitMinutes(context, PROVIDER, true),
                     ProviderPreferences.getSavedResetAttempt(context, PROVIDER, RULE_EXPIRY),
                     ProviderPreferences.getSavedResetAttempt(context, PROVIDER, RULE_LOW_USAGE),
-                    System.currentTimeMillis());
+                    now);
+            if (ClaudeResetAutoUse.SKIP_REFILLS_SOON.equals(decision.outcome)) {
+                ResetAlertPreferences.recordRefillWait(context, PROVIDER, decision.windowLabel,
+                        decision.resetAtMillis, now);
+            } else if (ClaudeResetAutoUse.FIRE_LOW_USAGE.equals(decision.outcome)) {
+                ResetAlertPreferences.clearRefillWait(context, PROVIDER);
+            }
             if (!decision.fires()) {
                 if (!ClaudeResetAutoUse.WAIT.equals(decision.outcome)) {
                     DiagnosticLog.info(context, "reset", "claude_saved_reset_auto_skipped",

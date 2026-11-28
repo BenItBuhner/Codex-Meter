@@ -88,6 +88,11 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var lowUsageAutoUseEnabled: Bool
     public var lowUsageAutoUseThreshold: Int
     public var lowUsageAutoUseMetric: LowUsageAutoUseMetric
+    /// Running-low use waits when the 5-hour limit refills on its own within this many minutes
+    /// (0 never waits); one of `LowUsageAutoUse.fiveHourWaitOptions`.
+    public var lowUsageFiveHourWaitMinutes: Int
+    /// The same for the weekly (or monthly) limit; one of `LowUsageAutoUse.weeklyWaitOptions`.
+    public var lowUsageWeeklyWaitMinutes: Int
     /// Whether meter cards and history project how long the current allowance may last.
     public var usagePaceEnabled: Bool
     /// `.off` keeps the projection but never flags it as accelerated.
@@ -106,6 +111,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
     public var claudeResetExpiryLeadMinutes: Int
     public var claudeResetLowUsageAutoUseEnabled: Bool
     public var claudeResetLowUsageThreshold: Int
+    public var claudeResetFiveHourWaitMinutes: Int
+    public var claudeResetWeeklyWaitMinutes: Int
     public var haptics: HapticsLevel
     /// Start the Live Activity on its own when the tightest limit reaches the Low allowance
     /// level from Notifications, or when it is being used fast. Both off by default.
@@ -147,6 +154,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         lowUsageAutoUseEnabled: Bool = false,
         lowUsageAutoUseThreshold: Int = LowUsageAutoUse.defaultThreshold,
         lowUsageAutoUseMetric: LowUsageAutoUseMetric = .both,
+        lowUsageFiveHourWaitMinutes: Int = LowUsageAutoUse.defaultWaitMinutes,
+        lowUsageWeeklyWaitMinutes: Int = LowUsageAutoUse.defaultWaitMinutes,
         usagePaceEnabled: Bool = true,
         usagePaceSensitivity: UsagePaceSensitivity = .balanced,
         showPriority: Bool = true,
@@ -156,6 +165,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         claudeResetExpiryLeadMinutes: Int = CreditExpiryAutoApply.defaultLeadMinutes,
         claudeResetLowUsageAutoUseEnabled: Bool = false,
         claudeResetLowUsageThreshold: Int = LowUsageAutoUse.defaultThreshold,
+        claudeResetFiveHourWaitMinutes: Int = LowUsageAutoUse.defaultWaitMinutes,
+        claudeResetWeeklyWaitMinutes: Int = LowUsageAutoUse.defaultWaitMinutes,
         haptics: HapticsLevel = .light,
         liveActivityWhenLow: Bool = false,
         liveActivityWhenFast: Bool = false,
@@ -196,6 +207,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.lowUsageAutoUseEnabled = lowUsageAutoUseEnabled
         self.lowUsageAutoUseThreshold = LowUsageAutoUse.normalizedThreshold(lowUsageAutoUseThreshold)
         self.lowUsageAutoUseMetric = lowUsageAutoUseMetric
+        self.lowUsageFiveHourWaitMinutes = LowUsageAutoUse.normalizedFiveHourWait(lowUsageFiveHourWaitMinutes)
+        self.lowUsageWeeklyWaitMinutes = LowUsageAutoUse.normalizedWeeklyWait(lowUsageWeeklyWaitMinutes)
         self.usagePaceEnabled = usagePaceEnabled
         self.usagePaceSensitivity = usagePaceSensitivity
         self.showPriority = showPriority
@@ -205,6 +218,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         self.claudeResetExpiryLeadMinutes = CreditExpiryAutoApply.normalizedLeadMinutes(claudeResetExpiryLeadMinutes)
         self.claudeResetLowUsageAutoUseEnabled = claudeResetLowUsageAutoUseEnabled
         self.claudeResetLowUsageThreshold = LowUsageAutoUse.normalizedThreshold(claudeResetLowUsageThreshold)
+        self.claudeResetFiveHourWaitMinutes = LowUsageAutoUse.normalizedFiveHourWait(claudeResetFiveHourWaitMinutes)
+        self.claudeResetWeeklyWaitMinutes = LowUsageAutoUse.normalizedWeeklyWait(claudeResetWeeklyWaitMinutes)
         self.haptics = haptics
         self.liveActivityWhenLow = liveActivityWhenLow
         self.liveActivityWhenFast = liveActivityWhenFast
@@ -406,6 +421,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case lowUsageAutoUseEnabled
         case lowUsageAutoUseThreshold
         case lowUsageAutoUseMetric
+        case lowUsageFiveHourWaitMinutes
+        case lowUsageWeeklyWaitMinutes
         case usagePaceEnabled
         case usagePaceSensitivity
         case showPriority
@@ -415,6 +432,8 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
         case claudeResetExpiryLeadMinutes
         case claudeResetLowUsageAutoUseEnabled
         case claudeResetLowUsageThreshold
+        case claudeResetFiveHourWaitMinutes
+        case claudeResetWeeklyWaitMinutes
         case haptics
         case liveActivityWhenLow
         case liveActivityWhenFast
@@ -462,6 +481,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
                 ?? LowUsageAutoUse.defaultThreshold,
             lowUsageAutoUseMetric: (try? container.decodeIfPresent(LowUsageAutoUseMetric.self, forKey: .lowUsageAutoUseMetric))
                 ?? .both,
+            lowUsageFiveHourWaitMinutes: try container.decodeIfPresent(Int.self, forKey: .lowUsageFiveHourWaitMinutes)
+                ?? LowUsageAutoUse.defaultWaitMinutes,
+            lowUsageWeeklyWaitMinutes: try container.decodeIfPresent(Int.self, forKey: .lowUsageWeeklyWaitMinutes)
+                ?? LowUsageAutoUse.defaultWaitMinutes,
             usagePaceEnabled: try container.decodeIfPresent(Bool.self, forKey: .usagePaceEnabled) ?? true,
             usagePaceSensitivity: try container.decodeIfPresent(UsagePaceSensitivity.self, forKey: .usagePaceSensitivity)
                 ?? .balanced,
@@ -478,6 +501,10 @@ nonisolated public struct AppSettings: Codable, Sendable, Equatable {
             ) ?? false,
             claudeResetLowUsageThreshold: try container.decodeIfPresent(Int.self, forKey: .claudeResetLowUsageThreshold)
                 ?? LowUsageAutoUse.defaultThreshold,
+            claudeResetFiveHourWaitMinutes: try container.decodeIfPresent(Int.self, forKey: .claudeResetFiveHourWaitMinutes)
+                ?? LowUsageAutoUse.defaultWaitMinutes,
+            claudeResetWeeklyWaitMinutes: try container.decodeIfPresent(Int.self, forKey: .claudeResetWeeklyWaitMinutes)
+                ?? LowUsageAutoUse.defaultWaitMinutes,
             haptics: (try? container.decodeIfPresent(HapticsLevel.self, forKey: .haptics)) ?? .light,
             liveActivityWhenLow: try container.decodeIfPresent(Bool.self, forKey: .liveActivityWhenLow) ?? false,
             liveActivityWhenFast: try container.decodeIfPresent(Bool.self, forKey: .liveActivityWhenFast) ?? false,

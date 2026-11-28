@@ -130,12 +130,18 @@ public sealed class SettingsPage : IPage
                 (uint)Math.Max(0, leads.ToList().IndexOf(CreditExpiryAutoApply.NormalizedLeadMinutes(s.AutoUseLeadMinutes))),
                 i => state.Settings.Update(x => x with { AutoUseLeadMinutes = leads[i] }), "AutoUseLeadRow"));
             codex.Add(expiring);
-            var low = Expander("Use when running low", "Spend a reset when a 5-hour or weekly limit is nearly used up, unless it resets soon anyway.",
+            var low = Expander("Use when running low", "Spend a reset when a 5-hour or weekly limit is nearly used up, unless it refills on its own soon anyway.",
                 s.AutoUseWhenLow, on => state.Settings.Update(x => x with { AutoUseWhenLow = on }), "AutoUseLowSwitch");
             low.AddRow(Combo("Use when remaining reaches", null, thresholdLabels,
                 (uint)Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(s.AutoUseThreshold))),
                 i => state.Settings.Update(x => x with { AutoUseThreshold = thresholds[i] }), "AutoUseThresholdRow"));
+            low.AddRow(WaitCombo("Wait for a 5-hour refill", false, s.AutoUseFiveHourWaitMinutes,
+                m => state.Settings.Update(x => x with { AutoUseFiveHourWaitMinutes = m }), "AutoUseFiveHourWaitRow"));
+            low.AddRow(WaitCombo("Wait for a weekly refill", true, s.AutoUseWeeklyWaitMinutes,
+                m => state.Settings.Update(x => x with { AutoUseWeeklyWaitMinutes = m }), "AutoUseWeeklyWaitRow"));
             codex.Add(low);
+            if (s.AutoUseWhenLow && ResetCreditsCard.RefillWaitText(s.AutoUseRefillWait, s, DateTimeOffset.UtcNow) is { } codexWait)
+                codex.Add(InfoRow("Waiting for a refill", codexWait, "AutoUseRefillWaitRow"));
         }
         if (claudeResets)
         {
@@ -148,12 +154,18 @@ public sealed class SettingsPage : IPage
                 (uint)Math.Max(0, leads.ToList().IndexOf(CreditExpiryAutoApply.NormalizedLeadMinutes(rules.LeadMinutes))),
                 i => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { LeadMinutes = leads[i] } }), "ClaudeAutoUseLeadRow"));
             claude.Add(expiring);
-            var low = Expander("Use when running low", "Spend a saved reset when a 5-hour or weekly limit is nearly used up.",
+            var low = Expander("Use when running low", "Spend a saved reset when a 5-hour or weekly limit is nearly used up, unless it refills on its own soon anyway.",
                 rules.AutoUseWhenLow, on => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { AutoUseWhenLow = on } }), "ClaudeAutoUseLowSwitch");
             low.AddRow(Combo("Use when remaining reaches", null, thresholdLabels,
                 (uint)Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(rules.Threshold))),
                 i => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { Threshold = thresholds[i] } }), "ClaudeAutoUseThresholdRow"));
+            low.AddRow(WaitCombo("Wait for a 5-hour refill", false, rules.FiveHourWaitMinutes,
+                m => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { FiveHourWaitMinutes = m } }), "ClaudeAutoUseFiveHourWaitRow"));
+            low.AddRow(WaitCombo("Wait for a weekly refill", true, rules.WeeklyWaitMinutes,
+                m => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { WeeklyWaitMinutes = m } }), "ClaudeAutoUseWeeklyWaitRow"));
             claude.Add(low);
+            if (rules.AutoUseWhenLow && ResetCreditsCard.RefillWaitText(rules.RefillWait, s, DateTimeOffset.UtcNow) is { } claudeWait)
+                claude.Add(InfoRow("Waiting for a refill", claudeWait, "ClaudeAutoUseRefillWaitRow"));
             var check = Adw.ActionRow.New();
             check.SetTitle("Check with Anthropic");
             check.SetSubtitle("Asks Anthropic which saved resets this account has, and why one can't be used yet.");
@@ -602,6 +614,24 @@ public sealed class SettingsPage : IPage
         if (description is not null) group.SetDescription(GLib.Functions.MarkupEscapeText(description, -1));
         preferences.Add(group);
         return group;
+    }
+
+    /// <summary>The running-low rule's wait for one limit: "Don't wait", "15 minutes" … "3 days".</summary>
+    private Adw.ComboRow WaitCombo(string title, bool weekly, int minutes, Action<int> changed, string name)
+    {
+        var options = weekly ? LowUsageAutoUse.WeeklyWaitOptions : LowUsageAutoUse.FiveHourWaitOptions;
+        var current = weekly ? LowUsageAutoUse.NormalizedWeeklyWait(minutes) : LowUsageAutoUse.NormalizedFiveHourWait(minutes);
+        return Combo(title, null, [.. options.Select(LowUsageAutoUse.WaitLabel)], (uint)Math.Max(0, options.ToList().IndexOf(current)),
+            i => changed(options[i]), name);
+    }
+
+    private static Adw.ActionRow InfoRow(string title, string subtitle, string name)
+    {
+        var row = Adw.ActionRow.New();
+        row.SetTitle(title);
+        row.SetSubtitle(subtitle);
+        row.SetName(name);
+        return row;
     }
 
     private Adw.ComboRow Combo(string title, string? subtitle, string[] items, uint selected, Action<int> changed, string? name = null)

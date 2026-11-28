@@ -224,6 +224,12 @@ public final class SettingsTransferStore {
                 ResetAlertPreferences.claudeSavedResetLowUsageEnabled(context));
         json.put("claude_saved_reset_threshold",
                 ResetAlertPreferences.claudeSavedResetThreshold(context));
+        for (UsageProvider provider : RESET_WAIT_PROVIDERS) {
+            json.put(ResetAlertPreferences.lowUsageWaitKey(provider, false),
+                    ResetAlertPreferences.lowUsageWaitMinutes(context, provider, false));
+            json.put(ResetAlertPreferences.lowUsageWaitKey(provider, true),
+                    ResetAlertPreferences.lowUsageWaitMinutes(context, provider, true));
+        }
         json.put("reset_credit_expiry_lead_times", SettingsTransfer.leadTimesToJson(
                 ResetAlertPreferences.getResetCreditExpiryLeadTimes(context)));
         return json;
@@ -347,6 +353,14 @@ public final class SettingsTransferStore {
         ResetAlertPreferences.setClaudeSavedResetThreshold(context,
                 json.optInt("claude_saved_reset_threshold",
                         ResetAlertPreferences.claudeSavedResetThreshold(context)));
+        for (UsageProvider provider : RESET_WAIT_PROVIDERS) {
+            for (boolean weekly : new boolean[] {false, true}) {
+                ResetAlertPreferences.setLowUsageWaitMinutes(context, provider, weekly,
+                        json.optInt(ResetAlertPreferences.lowUsageWaitKey(provider, weekly),
+                                ResetAlertPreferences.lowUsageWaitMinutes(context, provider,
+                                        weekly)));
+            }
+        }
         if (leadTimes != null) {
             ResetAlertPreferences.setResetCreditExpiryLeadTimes(context, leadTimes);
         }
@@ -407,4 +421,7 @@ public final class SettingsTransferStore {
             this.authenticationImported = authenticationImported;
         }
     }
+
+    private static final UsageProvider[] RESET_WAIT_PROVIDERS =
+            {UsageProvider.CODEX, UsageProvider.CLAUDE_CODE};
 }

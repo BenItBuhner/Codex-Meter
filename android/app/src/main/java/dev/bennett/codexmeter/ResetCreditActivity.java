@@ -463,6 +463,13 @@ public final class ResetCreditActivity extends AppCompatActivity {
             if (text.length() > 0) text.append(' ');
             text.append("A credit is also used when your 5-hour or weekly limit reaches ")
                     .append(threshold).append("% remaining.");
+            long now = System.currentTimeMillis();
+            ResetAlertPreferences.RefillWait wait =
+                    ResetAlertPreferences.refillWait(context, provider, now);
+            if (wait != null) {
+                text.append(' ').append(
+                        SettingsActivity.SettingsFragment.refillWaitSummary(context, wait, now));
+            }
         }
         if (text.length() > 0) text.append(" Change this in Settings > Reset credits.");
         return text.toString();

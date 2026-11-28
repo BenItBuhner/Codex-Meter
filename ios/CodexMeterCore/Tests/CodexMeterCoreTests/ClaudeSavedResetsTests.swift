@@ -112,6 +112,30 @@ struct ClaudeSavedResetsTests {
                                                 lastLowUsageToken: nil, now: now.addingTimeInterval(600))
         #expect(stale.outcome == .wait)
     }
+
+    @Test func runningLowWaitsForAWeeklyRefillWithinTheChosenWait() throws {
+        let resets = try #require(ClaudeSavedResets.fromUsageBody(body(fullGrant), fetchedAt: now))
+        let usage = UsageSnapshot(
+            planType: "pro", allowed: true, limitReached: true,
+            fiveHour: UsageWindow(usedPercent: 40, windowSeconds: 18_000, resetAfterSeconds: 7_200),
+            weekly: UsageWindow(usedPercent: 100, windowSeconds: 604_800, resetAfterSeconds: 72_000),
+            fetchedAt: now)
+        func decide(weeklyWait: Int) -> ClaudeResetAutoUse {
+            ClaudeResetAutoUse.evaluate(status: resets, usage: usage, expiryEnabled: false, leadMinutes: 60,
+                                        lowUsageEnabled: true, threshold: 1, lastExpiryKey: nil,
+                                        lastLowUsageToken: nil, weeklyWaitMinutes: weeklyWait, now: now)
+        }
+        #expect(decide(weeklyWait: 15).outcome == .fireLowUsage)
+        let held = decide(weeklyWait: 1_440)
+        #expect(held.outcome == .skipRefillsSoon)
+        #expect(!held.fires)
+        #expect(held.windowLabel == "weekly")
+        #expect(held.resetAt == now.addingTimeInterval(72_000))
+        #expect(RefillWait.after(nil, claude: held, now: now)
+            == RefillWait(windowLabel: "weekly", resetAt: now.addingTimeInterval(72_000), skippedAt: now))
+        #expect(RefillWait.after(RefillWait.after(nil, claude: held, now: now), claude: decide(weeklyWait: 15),
+                                 now: now) == nil)
+    }
 }
 
 @Suite("Loopback sign-in")

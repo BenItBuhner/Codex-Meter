@@ -220,11 +220,16 @@ struct ResetCreditsSettingsView: View {
                             Text(value == 0 ? "0% (limit reached)" : "\(value)%").tag(value)
                         }
                     }
+                    RefillWaitRows(
+                        fiveHour: $model.settings.lowUsageFiveHourWaitMinutes,
+                        weekly: $model.settings.lowUsageWeeklyWaitMinutes,
+                        storeKey: RefillWaitStore.codexKey
+                    )
                 }
             } header: {
                 Text("Codex")
             } footer: {
-                Text("Banked resets are used automatically so they are not lost. Running-low use watches the 5-hour and weekly limits, fires once per window, and skips a limit that refills on its own within 15 minutes. It runs on the next refresh, so allow some slack.")
+                Text("Banked resets are used automatically so they are not lost. Running-low use watches the 5-hour and weekly limits, fires once per window, and waits instead when that limit refills on its own within the time you choose. It runs on the next refresh, so allow some slack.")
             }
             .disabled(model.mode == .signedOut)
             .alert("Use resets automatically?", isPresented: $confirmingLowUsageAutoUse) {

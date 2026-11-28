@@ -933,6 +933,16 @@ public final class SettingsActivity extends AppCompatActivity {
             threshold.setPersistent(false);
             threshold.setIconSpaceReserved(false);
             section.addPreference(threshold);
+            ListPreference fiveHourWait = waitPreference(context, provider, false);
+            section.addPreference(fiveHourWait);
+            ListPreference weeklyWait = waitPreference(context, provider, true);
+            section.addPreference(weeklyWait);
+            Preference refillWait = new Preference(context);
+            refillWait.setKey(resetKey(provider, "refill_wait"));
+            refillWait.setTitle("Waiting for a refill");
+            refillWait.setIconSpaceReserved(false);
+            refillWait.setVisible(false);
+            section.addPreference(refillWait);
 
             if (provider == UsageProvider.CLAUDE_CODE) {
                 Preference check = new Preference(context);
@@ -966,25 +976,34 @@ public final class SettingsActivity extends AppCompatActivity {
             threshold.setValue(String.valueOf(
                     ResetAlertPreferences.lowUsageAutoUseThreshold(context, provider)));
             threshold.setVisible(low.isChecked());
+            fiveHourWait.setVisible(low.isChecked());
+            weeklyWait.setVisible(low.isChecked());
             low.setOnPreferenceChangeListener((preference, value) -> {
                 if (!(Boolean) value) {
                     ResetAlertPreferences.setLowUsageAutoUseEnabled(requireContext(), provider,
                             false);
                     threshold.setVisible(false);
+                    fiveHourWait.setVisible(false);
+                    weeklyWait.setVisible(false);
+                    updateResetStatus();
                     return true;
                 }
                 new AppDialog(requireContext())
                         .setTitle("Use resets automatically?")
                         .setMessage("Codex Meter will spend one banked reset when your 5-hour "
                                 + "or weekly limit reaches the level you choose. It checks "
-                                + "after each refresh and skips a limit that refills on its "
-                                + "own within 15 minutes. Used resets cannot be undone.")
+                                + "after each refresh and waits instead when that limit "
+                                + "refills on its own soon (15 minutes unless you change it "
+                                + "below). Used resets cannot be undone.")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Turn on", (dialog, which) -> {
                             ResetAlertPreferences.setLowUsageAutoUseEnabled(requireContext(),
                                     provider, true);
                             low.setChecked(true);
                             threshold.setVisible(true);
+                            fiveHourWait.setVisible(true);
+                            weeklyWait.setVisible(true);
+                            updateResetStatus();
                         })
                         .show();
                 return false;
@@ -994,6 +1013,49 @@ public final class SettingsActivity extends AppCompatActivity {
                         Integer.parseInt(String.valueOf(value)));
                 return true;
             });
+        }
+
+        /** "Wait for a weekly refill": the running-low rule's wait for one limit. */
+        private ListPreference waitPreference(Context context, UsageProvider provider,
+                boolean weekly) {
+            int[] options = weekly ? ResetCreditLowUsageAutoUse.WEEKLY_WAIT_OPTIONS
+                    : ResetCreditLowUsageAutoUse.FIVE_HOUR_WAIT_OPTIONS;
+            String[] entries = new String[options.length];
+            String[] values = new String[options.length];
+            for (int index = 0; index < options.length; index++) {
+                entries[index] = ResetCreditLowUsageAutoUse.waitLabel(options[index]);
+                values[index] = String.valueOf(options[index]);
+            }
+            String title = weekly ? "Wait for a weekly refill"
+                    : "Wait for a 5-hour refill";
+            ListPreference wait = new ListPreference(context);
+            wait.setKey(resetKey(provider, weekly ? "wait_weekly" : "wait_five_hour"));
+            wait.setTitle(title);
+            wait.setDialogTitle(title);
+            wait.setEntries(entries);
+            wait.setEntryValues(values);
+            wait.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+            wait.setPersistent(false);
+            wait.setIconSpaceReserved(false);
+            wait.setValue(String.valueOf(
+                    ResetAlertPreferences.lowUsageWaitMinutes(context, provider, weekly)));
+            wait.setOnPreferenceChangeListener((preference, value) -> {
+                ResetAlertPreferences.setLowUsageWaitMinutes(requireContext(), provider, weekly,
+                        Integer.parseInt(String.valueOf(value)));
+                return true;
+            });
+            return wait;
+        }
+
+        /**
+         * "Your weekly limit refills on its own tomorrow at 9:00 AM, so no reset was used.":
+         * shown while a running-low use is held back for a limit that hasn't refilled yet.
+         */
+        static String refillWaitSummary(Context context,
+                ResetAlertPreferences.RefillWait wait, long nowMillis) {
+            return "Your " + wait.windowLabel + " limit refills on its own "
+                    + UsageFormat.absolute(context, wait.resetAtMillis, nowMillis)
+                    + ", so no reset was used.";
         }
 
         private void rescheduleResetAutoUse(UsageProvider provider) {
@@ -1018,6 +1080,14 @@ public final class SettingsActivity extends AppCompatActivity {
                 boolean signedIn = SecureTokenStore.isSignedIn(context, provider);
                 Preference section = findPreference(resetKey(provider, "section"));
                 if (section != null) section.setVisible(signedIn || none);
+                Preference refillWait = findPreference(resetKey(provider, "refill_wait"));
+                if (refillWait != null) {
+                    ResetAlertPreferences.RefillWait wait = signedIn
+                            && ResetAlertPreferences.lowUsageAutoUseEnabled(context, provider)
+                            ? ResetAlertPreferences.refillWait(context, provider, now) : null;
+                    refillWait.setVisible(wait != null);
+                    if (wait != null) refillWait.setSummary(refillWaitSummary(context, wait, now));
+                }
                 Preference status = findPreference(resetKey(provider, "status"));
                 if (status == null) continue;
                 if (provider == UsageProvider.CLAUDE_CODE) {

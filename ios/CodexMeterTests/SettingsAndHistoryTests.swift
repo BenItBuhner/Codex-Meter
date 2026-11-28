@@ -21,6 +21,29 @@ final class SettingsAndHistoryTests: XCTestCase {
         XCTAssertEqual(decoded, custom)
     }
 
+    /// Issue #214: the running-low waits default to 15 minutes, keep their own value per limit
+    /// and provider, and fall back to the default when a stored value isn't on the menu.
+    func testRunningLowWaitsDefaultRoundTripAndFallBack() throws {
+        let legacy = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
+        XCTAssertEqual(legacy.lowUsageFiveHourWaitMinutes, 15)
+        XCTAssertEqual(legacy.lowUsageWeeklyWaitMinutes, 15)
+        XCTAssertEqual(legacy.claudeResetFiveHourWaitMinutes, 15)
+        XCTAssertEqual(legacy.claudeResetWeeklyWaitMinutes, 15)
+
+        var custom = AppSettings()
+        custom.lowUsageWeeklyWaitMinutes = 1_440
+        custom.claudeResetFiveHourWaitMinutes = 120
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(custom))
+        XCTAssertEqual(decoded, custom)
+        XCTAssertEqual(decoded.lowUsageFiveHourWaitMinutes, 15)
+        XCTAssertEqual(decoded.claudeResetWeeklyWaitMinutes, 15)
+
+        let offMenu = try JSONDecoder().decode(AppSettings.self, from: Data(
+            #"{"lowUsageFiveHourWaitMinutes":1440,"lowUsageWeeklyWaitMinutes":0}"#.utf8))
+        XCTAssertEqual(offMenu.lowUsageFiveHourWaitMinutes, 15, "a day isn't offered for the 5-hour limit")
+        XCTAssertEqual(offMenu.lowUsageWeeklyWaitMinutes, 0, "Don't wait is kept")
+    }
+
     func testDashboardSettingsOrderVisibilityAndTransferRoundTrip() throws {
         let spark = "limit:codex-spark"
         var settings = AppSettings()
