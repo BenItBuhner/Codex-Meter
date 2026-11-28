@@ -75,8 +75,17 @@ public final class SecureTokenStore {
             throws Exception {
         AuthTokens previous = DemoMode.isOn(context, provider) ? null : load(context, provider);
         save(context, provider, authTokens);
+        forgetPreviousAccount(context, provider, previous, authTokens);
+    }
+
+    /**
+     * What a sign-in forgets of the one before it. Split from {@link #saveSignIn} so tests can
+     * run it without the Android Keystore.
+     */
+    static SignInAccount.Change forgetPreviousAccount(Context context, UsageProvider provider,
+            AuthTokens previous, AuthTokens authTokens) {
         SignInAccount.Change change = SignInAccount.compare(previous, authTokens);
-        if (change == SignInAccount.Change.SAME) return;
+        if (change == SignInAccount.Change.SAME) return change;
         DiagnosticLog.info(context, "auth", "sign_in_account_changed", "provider", provider.id,
                 "change", change.name().toLowerCase(java.util.Locale.ROOT));
         if (change == SignInAccount.Change.DIFFERENT) {
@@ -85,6 +94,7 @@ public final class SecureTokenStore {
             ProviderPreferences.clearReading(context, provider);
         }
         RefillHold.clear(context, provider);
+        return change;
     }
 
     public static void save(Context context, UsageProvider provider, AuthTokens authTokens)
