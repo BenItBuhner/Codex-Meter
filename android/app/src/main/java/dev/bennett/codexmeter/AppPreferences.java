@@ -105,6 +105,16 @@ public final class AppPreferences {
         }
     }
 
+    /**
+     * Forgets Codex's last reading, its reset credits and its errors but keeps usage history:
+     * for a new sign-in that doesn't say whether it is the same account.
+     */
+    public static void clearReading(Context context) {
+        prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
+                .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
+                .remove(KEY_REFRESH_FAILURES).commit();
+    }
+
     public static void clearSnapshot(Context context) {
         prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
                 .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
