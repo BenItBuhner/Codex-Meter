@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Usage history highlights are a pull-down menu.** The highlights button opens a pull-down menu of switches instead of a sheet, the way Apple's apps do it. Liquid Glass, Android and iPhone.
+
+### Fixed
+
+- **The live monitor's Refresh refreshes.** Tapping Refresh on the live monitor or Now Bar fetched only Codex, and skipped Claude, Cursor and the other providers if their numbers were under five minutes old. It now fetches the provider the monitor shows and says "Refreshing…" until it's done. Android.
+- **A widget's Refresh button refreshes too.** It had the same five-minute skip, so a tap soon after a refresh did nothing. It now fetches every provider the widget shows, however fresh their numbers are. Android.
+
 ## 2.9.0-alpha.38 — 2026-11-27
 
 ### Changed
