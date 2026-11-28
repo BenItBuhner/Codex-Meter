@@ -57,6 +57,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        // Robolectric tests run the watch's sync and stores against a real Context on the JVM.
+        unitTests.isIncludeAndroidResources = true
+    }
+
     lint {
         // Known issues live in the baseline, which only shrinks; anything new fails the build.
         baseline = file("lint-baseline.xml")
@@ -80,4 +85,6 @@ dependencies {
     implementation("androidx.core:core:1.19.1")
     implementation("com.google.guava:guava:33.8.0-android")
     implementation("androidx.wear.watchface:watchface-complications-data-source:1.3.0")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.18.1")
 }

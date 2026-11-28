@@ -123,7 +123,7 @@ jobs:
       - name: Robolectric tests, compile with -Werror, and lint with warnings as errors
         run: |
           ./gradlew --console=plain \
-            :app:testDebugUnitTest \
+            :app:testDebugUnitTest :wear:testDebugUnitTest \
             :app:compileReleaseJavaWithJavac :wear:compileReleaseJavaWithJavac \
             :app:lintRelease :wear:lintRelease :wear:minifyReleaseWithR8
       - name: Upload lint and test reports

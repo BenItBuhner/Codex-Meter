@@ -39,6 +39,9 @@ public final class WearPhoneSync {
         try {
             WearUsageState state = WearUsageState.fromJson(new JSONObject(payload));
             if (state == null) return false;
+            // The Data Layer can replay an older item after a newer one (a reconnect, a late
+            // push): it must not put older numbers, or an older sign-out, over what is shown.
+            if (WearPreferences.isOlderThanShownUsage(context, state)) return false;
             if (state.snapshot == null) {
                 WearPreferences.clearSnapshot(context, state.updatedAtMillis,
                         !state.signedIn && WearPreferences.CODEX_ID.equals(

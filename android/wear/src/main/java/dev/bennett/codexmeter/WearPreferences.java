@@ -7,6 +7,7 @@ import dev.bennett.codexmeter.wear.WearProvidersState;
 import dev.bennett.codexmeter.wear.WearSettingsState;
 import dev.bennett.codexmeter.wear.WearSurfaceMode;
 import dev.bennett.codexmeter.wear.WearSyncStatus;
+import dev.bennett.codexmeter.wear.WearUsageState;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -18,6 +19,8 @@ public final class WearPreferences {
     private static final String KEY_LAST_APPLIED_MONITOR_AT = "last_applied_monitor_at";
     private static final String KEY_LAST_APPLIED_SETTINGS_AT = "last_applied_settings_at";
     private static final String KEY_LAST_APPLIED_USAGE_AT = "last_applied_usage_at";
+    /** The phone's push time of the last usage item (or sign-out) applied, to drop late replays. */
+    private static final String KEY_LAST_USAGE_PUSH_AT = "last_usage_push_at";
     private static final String KEY_LAST_APPLIED_STATUS_AT = "last_applied_status_at";
     private static final String KEY_LAST_LOCAL_SETTINGS_AT = "last_local_settings_at";
     private static final String KEY_METRIC = "metric";
@@ -150,8 +153,11 @@ public final class WearPreferences {
     public static void saveSnapshot(Context context, UsageSnapshot snapshot, long updatedAtMillis) {
         if (snapshot == null) return;
         try {
-            prefs(context).edit()
+            SharedPreferences prefs = prefs(context);
+            prefs.edit()
                     .putString(KEY_SNAPSHOT_JSON, snapshot.toJson().toString())
+                    .putLong(KEY_LAST_USAGE_PUSH_AT, Math.max(
+                            prefs.getLong(KEY_LAST_USAGE_PUSH_AT, 0L), updatedAtMillis))
                     .putLong(KEY_LAST_APPLIED_USAGE_AT, Math.max(0L,
                             snapshot.fetchedAtMillis > 0L
                                     ? snapshot.fetchedAtMillis : updatedAtMillis))
@@ -164,15 +170,28 @@ public final class WearPreferences {
         }
     }
 
+    /**
+     * Whether {@code state} was pushed before the usage item the watch last applied: a replayed
+     * or late item, which must not put older numbers (or an older sign-out) over newer ones.
+     * Ordered by the phone's push time, not the reading's fetch time, so going back from demo
+     * data to an earlier live reading still applies.
+     */
+    public static boolean isOlderThanShownUsage(Context context, WearUsageState state) {
+        return state.updatedAtMillis < prefs(context).getLong(KEY_LAST_USAGE_PUSH_AT, 0L);
+    }
+
     public static void clearSnapshot(Context context, long updatedAtMillis) {
         clearSnapshot(context, updatedAtMillis, true);
     }
 
     public static void clearSnapshot(Context context, long updatedAtMillis,
             boolean stopMonitor) {
-        prefs(context).edit()
+        SharedPreferences prefs = prefs(context);
+        prefs.edit()
                 .remove(KEY_SNAPSHOT_JSON)
                 .putLong(KEY_LAST_APPLIED_USAGE_AT, Math.max(0L, updatedAtMillis))
+                .putLong(KEY_LAST_USAGE_PUSH_AT, Math.max(
+                        prefs.getLong(KEY_LAST_USAGE_PUSH_AT, 0L), updatedAtMillis))
                 .putBoolean(KEY_SYNCED, true)
                 .putBoolean(KEY_CONNECTED, true)
                 .apply();
