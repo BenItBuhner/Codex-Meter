@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
  *       time of expiring.</li>
  *   <li><b>When running low</b> (opt-in): use one when a 5-hour or weekly window's remaining
  *       allowance reaches the chosen threshold, once per window, skipping a window that refills
- *       on its own within 15 minutes ({@link ResetCreditLowUsageAutoUse}).</li>
+ *       on its own within the chosen wait ({@link ResetCreditLowUsageAutoUse}).</li>
  * </ul>
  * The server decides whether a grant can be used now ({@code usable_now}); some, like a full
  * reset, work any time, others only at a limit. Nothing fires on a grant the server holds back.
@@ -24,6 +24,8 @@ public final class ClaudeResetAutoUse {
     public static final String WAIT = "wait";
     public static final String SKIP_ALREADY_TRIED = "skip_already_tried";
     public static final String SKIP_NO_MATCHING_RESET = "skip_no_matching_reset";
+    /** Running low, but the limit refills on its own within the chosen wait. */
+    public static final String SKIP_REFILLS_SOON = "skip_refills_soon";
 
     public final String outcome;
     public final ClaudeSavedResets.Grant grant;
@@ -32,14 +34,22 @@ public final class ClaudeResetAutoUse {
     /** For the running-low rule: "5-hour" / "weekly" and the remaining percent. */
     public final String windowLabel;
     public final int remainingPercent;
+    /** For {@link #SKIP_REFILLS_SOON}: when that limit refills on its own. */
+    public final long resetAtMillis;
 
     private ClaudeResetAutoUse(String outcome, ClaudeSavedResets.Grant grant, String attemptKey,
             String windowLabel, int remainingPercent) {
+        this(outcome, grant, attemptKey, windowLabel, remainingPercent, 0L);
+    }
+
+    private ClaudeResetAutoUse(String outcome, ClaudeSavedResets.Grant grant, String attemptKey,
+            String windowLabel, int remainingPercent, long resetAtMillis) {
         this.outcome = outcome;
         this.grant = grant;
         this.attemptKey = attemptKey == null ? "" : attemptKey;
         this.windowLabel = windowLabel == null ? "" : windowLabel;
         this.remainingPercent = remainingPercent;
+        this.resetAtMillis = resetAtMillis;
     }
 
     public boolean fires() {
@@ -53,6 +63,17 @@ public final class ClaudeResetAutoUse {
     public static ClaudeResetAutoUse evaluate(ClaudeSavedResets status, UsageSnapshot usage,
             boolean expiryEnabled, long leadMillis, boolean lowUsageEnabled, int threshold,
             String metric, String lastExpiryKey, String lastLowUsageToken, long nowMillis) {
+        return evaluate(status, usage, expiryEnabled, leadMillis, lowUsageEnabled, threshold,
+                metric, ResetCreditLowUsageAutoUse.DEFAULT_WAIT_MINUTES,
+                ResetCreditLowUsageAutoUse.DEFAULT_WAIT_MINUTES, lastExpiryKey,
+                lastLowUsageToken, nowMillis);
+    }
+
+    /** As above, with the running-low rule's own waits for the 5-hour and weekly limits. */
+    public static ClaudeResetAutoUse evaluate(ClaudeSavedResets status, UsageSnapshot usage,
+            boolean expiryEnabled, long leadMillis, boolean lowUsageEnabled, int threshold,
+            String metric, int fiveHourWaitMinutes, int weeklyWaitMinutes, String lastExpiryKey,
+            String lastLowUsageToken, long nowMillis) {
         if ((!expiryEnabled && !lowUsageEnabled) || status == null
                 || status.fetchedAtMillis <= 0L
                 || nowMillis - status.fetchedAtMillis > MAX_STATUS_AGE_MS) {
@@ -82,7 +103,8 @@ public final class ClaudeResetAutoUse {
         }
         if (lowUsageEnabled && usage != null) {
             ResetCreditLowUsageAutoUse low = ResetCreditLowUsageAutoUse.evaluate(usage, metric,
-                    threshold, status.availableCount(nowMillis), lastLowUsageToken, nowMillis);
+                    threshold, status.availableCount(nowMillis), lastLowUsageToken,
+                    fiveHourWaitMinutes, weeklyWaitMinutes, nowMillis);
             if (low.fires()) {
                 ClaudeSavedResets.Grant grant = status.usableGrantFor(low.windowLabel, nowMillis);
                 if (grant == null) {
@@ -95,6 +117,11 @@ public final class ClaudeResetAutoUse {
             if (ResetCreditLowUsageAutoUse.SKIP_ALREADY_USED.equals(low.outcome)) {
                 return new ClaudeResetAutoUse(SKIP_ALREADY_TRIED, null, low.windowToken,
                         low.windowLabel, low.remainingPercent);
+            }
+            if (ResetCreditLowUsageAutoUse.SKIP_RESET_IMMINENT.equals(low.outcome)
+                    && skipped == null) {
+                return new ClaudeResetAutoUse(SKIP_REFILLS_SOON, null, low.windowToken,
+                        low.windowLabel, low.remainingPercent, low.resetAtMillis);
             }
         }
         return skipped == null ? waiting() : skipped;

@@ -224,6 +224,78 @@ public final class ResetAlertPreferences {
                 ResetCreditLowUsageAutoUse.normalizeThreshold(threshold)).apply();
     }
 
+    private static String waitPrefix(UsageProvider provider) {
+        return provider == UsageProvider.CLAUDE_CODE ? "claude_saved_reset_"
+                : "reset_credit_low_usage_";
+    }
+
+    /** "reset_credit_low_usage_wait_weekly_min", "claude_saved_reset_wait_five_hour_min". */
+    public static String lowUsageWaitKey(UsageProvider provider, boolean weekly) {
+        return waitPrefix(provider) + (weekly ? "wait_weekly_min" : "wait_five_hour_min");
+    }
+
+    /**
+     * How long the running-low rule waits for a limit to refill on its own before it spends a
+     * reset: skip it when the 5-hour ({@code weekly} false) or weekly/monthly limit refills within
+     * this many minutes. 15 minutes unless changed; 0 never waits.
+     */
+    public static int lowUsageWaitMinutes(Context context, UsageProvider provider,
+            boolean weekly) {
+        int stored = prefs(context).getInt(lowUsageWaitKey(provider, weekly),
+                ResetCreditLowUsageAutoUse.DEFAULT_WAIT_MINUTES);
+        return weekly ? ResetCreditLowUsageAutoUse.normalizeWeeklyWait(stored)
+                : ResetCreditLowUsageAutoUse.normalizeFiveHourWait(stored);
+    }
+
+    public static void setLowUsageWaitMinutes(Context context, UsageProvider provider,
+            boolean weekly, int minutes) {
+        int value = weekly ? ResetCreditLowUsageAutoUse.normalizeWeeklyWait(minutes)
+                : ResetCreditLowUsageAutoUse.normalizeFiveHourWait(minutes);
+        prefs(context).edit().putInt(lowUsageWaitKey(provider, weekly), value).apply();
+    }
+
+    /** A running-low use the rule held back because the limit refills on its own soon. */
+    public static final class RefillWait {
+        /** "5-hour", "weekly" or "monthly". */
+        public final String windowLabel;
+        public final long resetAtMillis;
+        public final long skippedAtMillis;
+
+        RefillWait(String windowLabel, long resetAtMillis, long skippedAtMillis) {
+            this.windowLabel = windowLabel;
+            this.resetAtMillis = resetAtMillis;
+            this.skippedAtMillis = skippedAtMillis;
+        }
+    }
+
+    /** Remembers the latest held-back use, so Settings can say why no reset was spent. */
+    public static void recordRefillWait(Context context, UsageProvider provider,
+            String windowLabel, long resetAtMillis, long nowMillis) {
+        if (windowLabel == null || windowLabel.isEmpty() || resetAtMillis <= 0L) return;
+        String prefix = waitPrefix(provider);
+        prefs(context).edit().putString(prefix + "refill_wait_window", windowLabel)
+                .putLong(prefix + "refill_wait_reset_at", resetAtMillis)
+                .putLong(prefix + "refill_wait_at", nowMillis).apply();
+    }
+
+    /** The held-back use whose limit has not refilled yet, else null. */
+    public static RefillWait refillWait(Context context, UsageProvider provider,
+            long nowMillis) {
+        String prefix = waitPrefix(provider);
+        SharedPreferences preferences = prefs(context);
+        long resetAt = preferences.getLong(prefix + "refill_wait_reset_at", 0L);
+        String label = preferences.getString(prefix + "refill_wait_window", "");
+        if (resetAt <= nowMillis || label == null || label.isEmpty()) return null;
+        return new RefillWait(label, resetAt, preferences.getLong(prefix + "refill_wait_at", 0L));
+    }
+
+    public static void clearRefillWait(Context context, UsageProvider provider) {
+        String prefix = waitPrefix(provider);
+        prefs(context).edit().remove(prefix + "refill_wait_window")
+                .remove(prefix + "refill_wait_reset_at").remove(prefix + "refill_wait_at")
+                .apply();
+    }
+
     /** On by default, like Codex: a reset about to expire is otherwise lost. */
     public static boolean claudeSavedResetExpiryEnabled(Context context) {
         return prefs(context).getBoolean(KEY_CLAUDE_SAVED_RESET_EXPIRY, true);

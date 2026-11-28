@@ -420,8 +420,12 @@ public sealed class AppState
         autoUsingClaude = true;
         try
         {
+            var now = DateTimeOffset.UtcNow;
             var decision = ClaudeResetAutoUse.Evaluate(entry.Cache?.SavedResets, entry.Usage, rules.AutoUseExpiring, rules.LeadMinutes,
-                rules.AutoUseWhenLow, rules.Threshold, LowUsageAutoUseMetric.Both, rules.LastExpiryKey, rules.LastLowToken, DateTimeOffset.UtcNow);
+                rules.AutoUseWhenLow, rules.Threshold, LowUsageAutoUseMetric.Both, rules.LastExpiryKey, rules.LastLowToken, now,
+                rules.FiveHourWaitMinutes, rules.WeeklyWaitMinutes);
+            var refillWait = RefillWait.After(rules.RefillWait, decision, now);
+            if (refillWait != rules.RefillWait) Settings.Update(s => s with { ClaudeResets = s.ClaudeResets with { RefillWait = refillWait } });
             if (!decision.Fires) return;
             var expiring = decision.Outcome == ClaudeAutoUseOutcome.FireExpiring;
             Settings.Update(s => s with
@@ -479,7 +483,10 @@ public sealed class AppState
             if (settings.AutoUseWhenLow)
             {
                 var decision = LowUsageAutoUse.Evaluate(entry.Usage, LowUsageAutoUseMetric.Both, settings.AutoUseThreshold,
-                    entry.Cache?.Credits?.AvailableCount ?? entry.Usage?.ResetCreditsAvailable, settings.AutoUseLastToken, now);
+                    entry.Cache?.Credits?.AvailableCount ?? entry.Usage?.ResetCreditsAvailable, settings.AutoUseLastToken, now,
+                    settings.AutoUseFiveHourWaitMinutes, settings.AutoUseWeeklyWaitMinutes);
+                var refillWait = RefillWait.After(settings.AutoUseRefillWait, decision, now);
+                if (refillWait != settings.AutoUseRefillWait) Settings.Update(s => s with { AutoUseRefillWait = refillWait });
                 if (!decision.Fires) return;
                 Settings.Update(s => s with { AutoUseLastToken = decision.WindowToken });
                 var result = await UseResetAsync(null);

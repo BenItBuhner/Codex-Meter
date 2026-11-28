@@ -40,7 +40,7 @@ public sealed record ResetCreditsCard(
                 saved?.AvailableTitle(now) ?? "No resets available",
                 (usable ?? next)?.RefillsText ?? "Saved resets refill a Claude Code limit you've hit. Anthropic gives them out from time to time.",
                 lines,
-                rules.Count > 0 ? "Auto-use is on: " + string.Join(" and ", rules) + "." : null,
+                AutoUseText(rules, claude.AutoUseWhenLow ? claude.RefillWait : null, settings, now),
                 usable is not null,
                 saved is null ? null : saved.UnavailableMessage(now) is { Length: > 0 } held ? held + "." : null,
                 usable is null ? "" : $"This uses one {usable.Title} now. {usable.RefillsText}",
@@ -59,10 +59,22 @@ public sealed record ResetCreditsCard(
             count == 1 ? "1 reset available" : $"{count} resets available",
             "A reset clears your Codex 5-hour and weekly limits right away.",
             codexLines,
-            codexRules.Count > 0 ? "Auto-use is on: " + string.Join(" and ", codexRules) + "." : null,
+            AutoUseText(codexRules, settings.AutoUseWhenLow ? settings.AutoUseRefillWait : null, settings, now),
             count > 0,
             null,
             "This clears your Codex 5-hour and weekly limits. The reset that expires first is used.",
             null);
     }
+
+    /// <summary>"Auto-use is on: …." plus, while one is held back, why no reset was used.</summary>
+    private static string? AutoUseText(List<string> rules, RefillWait? wait, AppSettings settings, DateTimeOffset now)
+    {
+        if (rules.Count == 0) return null;
+        var text = "Auto-use is on: " + string.Join(" and ", rules) + ".";
+        return RefillWaitText(wait, settings, now) is { } held ? text + " " + held : text;
+    }
+
+    /// <summary>"Your weekly limit refills on its own tomorrow at 9:00 AM, so no reset was used.", or null.</summary>
+    public static string? RefillWaitText(RefillWait? wait, AppSettings settings, DateTimeOffset now) =>
+        wait is { } held && held.IsActive(now) ? held.Summary(at => UsageFormat.Absolute(at, now, settings.Use24HourClock)) : null;
 }

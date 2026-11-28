@@ -525,6 +525,7 @@ public final class ProviderPreferences {
                 .remove(provider.id + SUFFIX_SAVED_RESET_ATTEMPT + "expiry")
                 .remove(provider.id + SUFFIX_SAVED_RESET_ATTEMPT + "low_usage")
                 .commit();
+        ResetAlertPreferences.clearRefillWait(context, provider);
         PhoneWearSync.pushProviders(context);
     }
 }

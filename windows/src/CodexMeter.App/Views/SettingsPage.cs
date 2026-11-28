@@ -117,11 +117,17 @@ public sealed class SettingsPage : PageBase
                 "When to use it", Combo("AutoUseLeadBox", leadLabels,
                     Math.Max(0, leads.ToList().IndexOf(CreditExpiryAutoApply.NormalizedLeadMinutes(s.AutoUseLeadMinutes))),
                     i => Update(x => x with { AutoUseLeadMinutes = leads[i] }))));
-            Body.Children.Add(RuleExpander("Use when running low", "Spend a reset when a 5-hour or weekly limit is nearly used up, unless it resets soon anyway.", "",
+            Body.Children.Add(RuleExpander("Use when running low", "Spend a reset when a 5-hour or weekly limit is nearly used up, unless it refills on its own soon anyway.", "",
                 "AutoUseLowSwitch", s.AutoUseWhenLow, on => Update(x => x with { AutoUseWhenLow = on }),
                 "Use when remaining reaches", Combo("AutoUseThresholdBox", thresholdLabels,
                     Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(s.AutoUseThreshold))),
-                    i => Update(x => x with { AutoUseThreshold = thresholds[i] }))));
+                    i => Update(x => x with { AutoUseThreshold = thresholds[i] })),
+                ("Wait if the 5-hour limit refills within", WaitCombo("AutoUseFiveHourWaitBox", false, s.AutoUseFiveHourWaitMinutes,
+                    m => Update(x => x with { AutoUseFiveHourWaitMinutes = m }))),
+                ("Wait if the weekly limit refills within", WaitCombo("AutoUseWeeklyWaitBox", true, s.AutoUseWeeklyWaitMinutes,
+                    m => Update(x => x with { AutoUseWeeklyWaitMinutes = m })))));
+            if (s.AutoUseWhenLow && ResetCreditsCard.RefillWaitText(s.AutoUseRefillWait, s, DateTimeOffset.UtcNow) is { } codexWait)
+                Body.Children.Add(Card("Waiting for a refill", codexWait, "\uE916", null));
         }
         if (claudeResets)
         {
@@ -133,11 +139,17 @@ public sealed class SettingsPage : PageBase
                 "When to use it", Combo("ClaudeAutoUseLeadBox", leadLabels,
                     Math.Max(0, leads.ToList().IndexOf(CreditExpiryAutoApply.NormalizedLeadMinutes(rules.LeadMinutes))),
                     i => Update(x => x with { ClaudeResets = x.ClaudeResets with { LeadMinutes = leads[i] } }))));
-            Body.Children.Add(RuleExpander("Use when running low", "Spend a saved reset when a 5-hour or weekly limit is nearly used up.", "",
+            Body.Children.Add(RuleExpander("Use when running low", "Spend a saved reset when a 5-hour or weekly limit is nearly used up, unless it refills on its own soon anyway.", "",
                 "ClaudeAutoUseLowSwitch", rules.AutoUseWhenLow, on => Update(x => x with { ClaudeResets = x.ClaudeResets with { AutoUseWhenLow = on } }),
                 "Use when remaining reaches", Combo("ClaudeAutoUseThresholdBox", thresholdLabels,
                     Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(rules.Threshold))),
-                    i => Update(x => x with { ClaudeResets = x.ClaudeResets with { Threshold = thresholds[i] } }))));
+                    i => Update(x => x with { ClaudeResets = x.ClaudeResets with { Threshold = thresholds[i] } })),
+                ("Wait if the 5-hour limit refills within", WaitCombo("ClaudeAutoUseFiveHourWaitBox", false, rules.FiveHourWaitMinutes,
+                    m => Update(x => x with { ClaudeResets = x.ClaudeResets with { FiveHourWaitMinutes = m } }))),
+                ("Wait if the weekly limit refills within", WaitCombo("ClaudeAutoUseWeeklyWaitBox", true, rules.WeeklyWaitMinutes,
+                    m => Update(x => x with { ClaudeResets = x.ClaudeResets with { WeeklyWaitMinutes = m } })))));
+            if (rules.AutoUseWhenLow && ResetCreditsCard.RefillWaitText(rules.RefillWait, s, DateTimeOffset.UtcNow) is { } claudeWait)
+                Body.Children.Add(Card("Waiting for a refill", claudeWait, "\uE916", null));
             var check = new Button { Content = "Check" };
             AutomationProperties.SetAutomationId(check, "ClaudeCheckResetsButton");
             check.Click += async (_, _) =>
@@ -609,6 +621,14 @@ public sealed class SettingsPage : PageBase
             card.Description = description;
         }
         return card;
+    }
+
+    /// <summary>The running-low rule's wait for one limit: "Don't wait", "15 minutes" … "3 days".</summary>
+    private static ComboBox WaitCombo(string id, bool weekly, int minutes, Action<int> changed)
+    {
+        var options = weekly ? LowUsageAutoUse.WeeklyWaitOptions : LowUsageAutoUse.FiveHourWaitOptions;
+        var current = weekly ? LowUsageAutoUse.NormalizedWeeklyWait(minutes) : LowUsageAutoUse.NormalizedFiveHourWait(minutes);
+        return Combo(id, [.. options.Select(LowUsageAutoUse.WaitLabel)], Math.Max(0, options.ToList().IndexOf(current)), i => changed(options[i]));
     }
 
     private static ComboBox Combo(string id, string[] items, int selected, Action<int> changed)

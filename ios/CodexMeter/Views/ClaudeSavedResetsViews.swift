@@ -121,6 +121,11 @@ struct ClaudeResetCreditsSettingsSection: View {
                         Text(value == 0 ? "0% (limit reached)" : "\(value)%").tag(value)
                     }
                 }
+                RefillWaitRows(
+                    fiveHour: $model.settings.claudeResetFiveHourWaitMinutes,
+                    weekly: $model.settings.claudeResetWeeklyWaitMinutes,
+                    storeKey: RefillWaitStore.claudeKey
+                )
             }
             Button {
                 Task { await claude.checkWithAnthropic() }
@@ -138,7 +143,7 @@ struct ClaudeResetCreditsSettingsSection: View {
         } header: {
             Text("Claude Code")
         } footer: {
-            Text("Saved resets refill a Claude Code limit you've hit. Anthropic spends nothing when no limit is in the way. Running-low use watches the 5-hour and weekly limits and fires once per window.")
+            Text("Saved resets refill a Claude Code limit you've hit. Anthropic spends nothing when no limit is in the way. Running-low use watches the 5-hour and weekly limits, fires once per window, and waits instead when that limit refills on its own within the time you choose.")
         }
         .disabled(claude.phase == .signedOut)
         .alert("Use resets automatically?", isPresented: $confirmingLowUsage) {
@@ -160,5 +165,38 @@ struct ClaudeResetCreditsSettingsSection: View {
                 }
             }
         )
+    }
+}
+
+/// The running-low rule's waits (issue #214): skip a limit that refills on its own within the
+/// chosen time, separately for the 5-hour and weekly limits, and say when a use was held back.
+struct RefillWaitRows: View {
+    @Binding var fiveHour: Int
+    @Binding var weekly: Int
+    let storeKey: String
+
+    var body: some View {
+        Picker("Wait if the 5-hour limit refills within", selection: $fiveHour) {
+            ForEach(LowUsageAutoUse.fiveHourWaitOptions, id: \.self) { minutes in
+                Text(LowUsageAutoUse.waitLabel(minutes)).tag(minutes)
+            }
+        }
+        Picker("Wait if the weekly limit refills within", selection: $weekly) {
+            ForEach(LowUsageAutoUse.weeklyWaitOptions, id: \.self) { minutes in
+                Text(LowUsageAutoUse.waitLabel(minutes)).tag(minutes)
+            }
+        }
+        // Read on each render: the rule records a held-back use when a refresh updates usage.
+        let now = Date()
+        if let wait = RefillWaitStore.active(storeKey, now: now) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Waiting for a refill")
+                Text(wait.summary { UsageFormat.absolute($0, relativeTo: now) })
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("refill-wait-status")
+        }
     }
 }

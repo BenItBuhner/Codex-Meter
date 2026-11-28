@@ -1478,6 +1478,7 @@ public final class ParserSelfTest {
         check(ResetCreditLowUsageAutoUse.normalizeThreshold(7)
                         == ResetCreditLowUsageAutoUse.DEFAULT_THRESHOLD,
                 "an off-menu threshold falls back to 1%");
+        testLowUsageRefillWaits(now);
         System.out.println("Reset-credit low-usage demo: one credit fires per window at the "
                 + "threshold, never from stale data or right before a natural refill.");
     }
@@ -1594,6 +1595,62 @@ public final class ParserSelfTest {
         System.out.println("Claude saved resets: status, cache, claim body, and results parse.");
     }
 
+    /** Issue #214: the wait before a refill is a setting, separate for 5-hour and weekly. */
+    private static void testLowUsageRefillWaits(long now) {
+        long hour = 3600L;
+        String both = ResetCreditLowUsageAutoUse.METRIC_BOTH;
+        // Weekly used up, refilling on its own in exactly 24 hours; 5-hour healthy.
+        UsageSnapshot weeklyOut = new UsageSnapshot("pro", true, false,
+                new UsageWindow(30, 18_000L, 2 * hour, 0L),
+                new UsageWindow(100, 604_800L, 24 * hour, 0L), now);
+        check(ResetCreditLowUsageAutoUse.evaluate(weeklyOut, both, 1, 1, "", 15, 15, now)
+                        .fires(),
+                "a 15-minute wait still spends a credit on a week that refills tomorrow");
+        ResetCreditLowUsageAutoUse dayWait = ResetCreditLowUsageAutoUse.evaluate(weeklyOut, both,
+                1, 1, "", 15, 1440, now);
+        check(ResetCreditLowUsageAutoUse.SKIP_RESET_IMMINENT.equals(dayWait.outcome)
+                        && "weekly".equals(dayWait.windowLabel)
+                        && dayWait.resetAtMillis == now + TimeUnit.HOURS.toMillis(24),
+                "a one-day wait keeps the credit when the week refills in exactly 24 hours");
+        check(ResetCreditLowUsageAutoUse.evaluate(weeklyOut, both, 1, 1, "", 15, 720, now)
+                        .fires(),
+                "a 12-hour wait spends the credit when the week refills in 24 hours");
+        check(ResetCreditLowUsageAutoUse.evaluate(weeklyOut, both, 1, 1, "", 240, 15, now)
+                        .fires(),
+                "a long 5-hour wait doesn't hold back a low weekly limit");
+        // 5-hour used up, refilling in 90 minutes; weekly healthy.
+        UsageSnapshot fiveOut = new UsageSnapshot("pro", true, false,
+                new UsageWindow(100, 18_000L, 90 * 60L, 0L),
+                new UsageWindow(40, 604_800L, 72 * hour, 0L), now);
+        check(ResetCreditLowUsageAutoUse.evaluate(fiveOut, both, 1, 1, "", 60, 4320, now)
+                        .fires(),
+                "a 1-hour 5-hour wait spends a credit 90 minutes before the refill");
+        check(ResetCreditLowUsageAutoUse.SKIP_RESET_IMMINENT.equals(ResetCreditLowUsageAutoUse
+                        .evaluate(fiveOut, both, 1, 1, "", 120, 0, now).outcome),
+                "a 2-hour 5-hour wait keeps the credit 90 minutes before the refill");
+        check(ResetCreditLowUsageAutoUse.evaluate(snapshot(100, 60, 60L, now), both, 1, 1, "",
+                        0, 0, now).fires(),
+                "Don't wait spends a credit even a minute before the refill");
+        check(ResetCreditLowUsageAutoUse.evaluate(monthlySnapshot(100, 2 * 86_400L, now),
+                        ResetCreditLowUsageAutoUse.METRIC_WEEKLY, 0, 1, "", 15, 2880, now)
+                        .outcome.equals(ResetCreditLowUsageAutoUse.SKIP_RESET_IMMINENT),
+                "a monthly window uses the weekly wait");
+        check(ResetCreditLowUsageAutoUse.normalizeWeeklyWait(1440) == 1440
+                        && ResetCreditLowUsageAutoUse.normalizeWeeklyWait(999) == 15
+                        && ResetCreditLowUsageAutoUse.normalizeFiveHourWait(1440) == 15
+                        && ResetCreditLowUsageAutoUse.normalizeFiveHourWait(0) == 0,
+                "waits off the menu fall back to 15 minutes; 0 (Don't wait) is kept");
+        check("Don't wait".equals(ResetCreditLowUsageAutoUse.waitLabel(0))
+                        && "15 minutes".equals(ResetCreditLowUsageAutoUse.waitLabel(15))
+                        && "1 hour".equals(ResetCreditLowUsageAutoUse.waitLabel(60))
+                        && "12 hours".equals(ResetCreditLowUsageAutoUse.waitLabel(720))
+                        && "1 day".equals(ResetCreditLowUsageAutoUse.waitLabel(1440))
+                        && "3 days".equals(ResetCreditLowUsageAutoUse.waitLabel(4320)),
+                "wait labels read in minutes, hours and days");
+        System.out.println("Running-low waits: the 5-hour and weekly limits each wait for "
+                + "their own refill window.");
+    }
+
     private static ClaudeResetAutoUse claudeAuto(ClaudeSavedResets status, UsageSnapshot usage,
             boolean expiry, boolean lowUsage, String lastExpiry, String lastLow, long now) {
         return ClaudeResetAutoUse.evaluate(status, usage, expiry, TimeUnit.HOURS.toMillis(2),
@@ -1638,9 +1695,30 @@ public final class ParserSelfTest {
         ClaudeResetAutoUse weekly = claudeAuto(usableLater, weeklyLow, false, true, "", "", now);
         check(weekly.fires() && "grant_late".equals(weekly.grant.id),
                 "a low weekly limit picks the reset that refills the weekly limit");
-        check(ClaudeResetAutoUse.WAIT.equals(claudeAuto(usableLater, snapshot(100, 49, 600L, now),
-                        false, true, "", "", now).outcome),
+        check(!claudeAuto(usableLater, snapshot(100, 49, 600L, now), false, true, "", "", now)
+                        .fires(),
                 "a limit that refills within 15 minutes is not worth a reset");
+        ClaudeResetAutoUse soon = claudeAuto(usableLater, snapshot(100, 49, 600L, now), false,
+                true, "", "", now);
+        check(ClaudeResetAutoUse.SKIP_REFILLS_SOON.equals(soon.outcome)
+                        && "5-hour".equals(soon.windowLabel)
+                        && soon.resetAtMillis == now + 600_000L,
+                "a reset held back for a refill says which limit and when it refills");
+        UsageSnapshot weeklyTomorrow = new UsageSnapshot("pro", true, false,
+                new UsageWindow(40, 18_000L, 3 * hour, 0L),
+                new UsageWindow(100, 604_800L, 20 * hour, 0L), now);
+        check(claudeAuto(usableLater, weeklyTomorrow, false, true, "", "", now).fires(),
+                "with the default wait, a weekly limit refilling in 20 hours uses a reset");
+        ClaudeResetAutoUse waitDay = ClaudeResetAutoUse.evaluate(usableLater, weeklyTomorrow,
+                false, TimeUnit.HOURS.toMillis(2), true, 1,
+                ResetCreditLowUsageAutoUse.METRIC_BOTH, 15, 1440, "", "", now);
+        check(ClaudeResetAutoUse.SKIP_REFILLS_SOON.equals(waitDay.outcome)
+                        && "weekly".equals(waitDay.windowLabel),
+                "a one-day weekly wait keeps the reset when the week refills tomorrow");
+        check(ClaudeResetAutoUse.FIRE_EXPIRING.equals(ClaudeResetAutoUse.evaluate(usableSoon,
+                        weeklyTomorrow, true, TimeUnit.HOURS.toMillis(2), true, 1,
+                        ResetCreditLowUsageAutoUse.METRIC_BOTH, 15, 1440, "", "", now).outcome),
+                "waiting for a refill never blocks using a reset before it expires");
         check(!claudeAuto(usableSoon, low, true, true, "", "",
                         now + TimeUnit.MINUTES.toMillis(5)).fires(),
                 "a stale status never spends a reset");

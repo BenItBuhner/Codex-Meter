@@ -68,6 +68,12 @@ public sealed record AppSettings
     public int AutoUseThreshold { get; init; } = Models.LowUsageAutoUse.DefaultThreshold;
     /// <summary>The window the low-usage rule last fired for, so it fires once per window.</summary>
     public string? AutoUseLastToken { get; init; }
+    /// <summary>Running-low use waits when the 5-hour limit refills on its own within this many minutes (0 never waits).</summary>
+    public int AutoUseFiveHourWaitMinutes { get; init; } = Models.LowUsageAutoUse.DefaultWaitMinutes;
+    /// <summary>The same for the weekly (or monthly) limit.</summary>
+    public int AutoUseWeeklyWaitMinutes { get; init; } = Models.LowUsageAutoUse.DefaultWaitMinutes;
+    /// <summary>The last running-low use held back for a refill, shown until that limit refills.</summary>
+    public Models.RefillWait? AutoUseRefillWait { get; init; }
 
     /// <summary>Settings → Updates: channel, automatic checks and notifications (as on Android).</summary>
     public Updates.UpdatePreferences Updates { get; init; } = new();
@@ -121,6 +127,12 @@ public sealed record ClaudeResetRules
     public string? LastExpiryKey { get; init; }
     /// <summary>The window the low-usage rule last fired for, so it fires once per window.</summary>
     public string? LastLowToken { get; init; }
+    /// <summary>Running-low use waits when the 5-hour limit refills on its own within this many minutes (0 never waits).</summary>
+    public int FiveHourWaitMinutes { get; init; } = Models.LowUsageAutoUse.DefaultWaitMinutes;
+    /// <summary>The same for the weekly limit.</summary>
+    public int WeeklyWaitMinutes { get; init; } = Models.LowUsageAutoUse.DefaultWaitMinutes;
+    /// <summary>The last running-low use held back for a refill, shown until that limit refills.</summary>
+    public Models.RefillWait? RefillWait { get; init; }
 }
 
 public sealed class SettingsStore(string? path)

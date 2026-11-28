@@ -399,14 +399,17 @@ public sealed record SavedResetClaimResult(SavedResetClaimOutcome Outcome, strin
     { Message = UserMessage };
 }
 
-public enum ClaudeAutoUseOutcome { Wait, FireExpiring, FireLowUsage, SkipAlreadyTried, SkipNoMatchingReset }
+public enum ClaudeAutoUseOutcome { Wait, FireExpiring, FireLowUsage, SkipAlreadyTried, SkipNoMatchingReset, SkipRefillsSoon }
 
 /// <summary>
 /// Automatic use of Claude saved resets, a port of the Android <c>ClaudeResetAutoUse</c>: one that
 /// is about to expire is used while the server says it can be, or one is used when a window it
 /// refills runs low. Each rule fires once per grant or window, never from a stale status.
+/// <see cref="ClaudeAutoUseOutcome.SkipRefillsSoon"/>: running low, but that limit refills on its
+/// own within the chosen wait (<see cref="ResetAt"/>).
 /// </summary>
-public sealed record ClaudeResetAutoUse(ClaudeAutoUseOutcome Outcome, SavedResetGrant? Grant, string AttemptKey, string WindowLabel, int RemainingPercent)
+public sealed record ClaudeResetAutoUse(ClaudeAutoUseOutcome Outcome, SavedResetGrant? Grant, string AttemptKey, string WindowLabel, int RemainingPercent,
+    DateTimeOffset? ResetAt = null)
 {
     public static readonly TimeSpan MaxStatusAge = TimeSpan.FromMinutes(2);
 
@@ -415,7 +418,8 @@ public sealed record ClaudeResetAutoUse(ClaudeAutoUseOutcome Outcome, SavedReset
     private static readonly ClaudeResetAutoUse Waiting = new(ClaudeAutoUseOutcome.Wait, null, "", "", -1);
 
     public static ClaudeResetAutoUse Evaluate(ClaudeSavedResets? status, UsageSnapshot? usage, bool expiryEnabled, int leadMinutes,
-        bool lowUsageEnabled, int threshold, LowUsageAutoUseMetric metric, string? lastExpiryKey, string? lastLowUsageToken, DateTimeOffset now)
+        bool lowUsageEnabled, int threshold, LowUsageAutoUseMetric metric, string? lastExpiryKey, string? lastLowUsageToken, DateTimeOffset now,
+        int fiveHourWaitMinutes = LowUsageAutoUse.DefaultWaitMinutes, int weeklyWaitMinutes = LowUsageAutoUse.DefaultWaitMinutes)
     {
         if ((!expiryEnabled && !lowUsageEnabled) || status is null || now - status.FetchedAt > MaxStatusAge) return Waiting;
         ClaudeResetAutoUse? skipped = null;
@@ -433,7 +437,8 @@ public sealed record ClaudeResetAutoUse(ClaudeAutoUseOutcome Outcome, SavedReset
         }
         if (lowUsageEnabled && usage is not null)
         {
-            var low = LowUsageAutoUse.Evaluate(usage, metric, threshold, status.AvailableCount(now), lastLowUsageToken, now);
+            var low = LowUsageAutoUse.Evaluate(usage, metric, threshold, status.AvailableCount(now), lastLowUsageToken, now,
+                fiveHourWaitMinutes, weeklyWaitMinutes);
             if (low.Fires)
             {
                 return status.UsableGrantFor(low.WindowLabel, now) is { } grant
@@ -442,6 +447,8 @@ public sealed record ClaudeResetAutoUse(ClaudeAutoUseOutcome Outcome, SavedReset
             }
             if (low.Outcome == LowUsageOutcome.SkipAlreadyUsed)
                 return new(ClaudeAutoUseOutcome.SkipAlreadyTried, null, low.WindowToken, low.WindowLabel, low.RemainingPercent);
+            if (low.Outcome == LowUsageOutcome.SkipResetImminent && skipped is null)
+                return new(ClaudeAutoUseOutcome.SkipRefillsSoon, null, low.WindowToken, low.WindowLabel, low.RemainingPercent, low.ResetAt);
         }
         return skipped ?? Waiting;
     }

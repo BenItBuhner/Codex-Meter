@@ -66,7 +66,8 @@ public static class SettingsTransfer
     {
         UsedUpLimits = [],
         AutoUseLastToken = null,
-        ClaudeResets = settings.ClaudeResets with { LastExpiryKey = null, LastLowToken = null },
+        AutoUseRefillWait = null,
+        ClaudeResets = settings.ClaudeResets with { LastExpiryKey = null, LastLowToken = null, RefillWait = null },
         Updates = settings.Updates with { LastCheck = null, LastNotified = null },
         WhatsNewSeen = null,
         // Whether the app starts with the OS is registered with the OS, not just a setting.
@@ -77,7 +78,13 @@ public static class SettingsTransfer
     {
         UsedUpLimits = current.UsedUpLimits,
         AutoUseLastToken = current.AutoUseLastToken,
-        ClaudeResets = imported.ClaudeResets with { LastExpiryKey = current.ClaudeResets.LastExpiryKey, LastLowToken = current.ClaudeResets.LastLowToken },
+        AutoUseRefillWait = current.AutoUseRefillWait,
+        ClaudeResets = imported.ClaudeResets with
+        {
+            LastExpiryKey = current.ClaudeResets.LastExpiryKey,
+            LastLowToken = current.ClaudeResets.LastLowToken,
+            RefillWait = current.ClaudeResets.RefillWait,
+        },
         Updates = imported.Updates with { LastCheck = current.Updates.LastCheck, LastNotified = current.Updates.LastNotified },
         StartWithWindows = current.StartWithWindows,
         StartMinimized = current.StartMinimized,
@@ -107,7 +114,15 @@ public static class SettingsTransfer
             SectionOrder = s.SectionOrder ?? [],
             HiddenSections = s.HiddenSections ?? [],
             HistoryOverrides = s.HistoryOverrides ?? [],
-            ClaudeResets = s.ClaudeResets ?? new ClaudeResetRules(),
+            AutoUseFiveHourWaitMinutes = Models.LowUsageAutoUse.NormalizedFiveHourWait(s.AutoUseFiveHourWaitMinutes),
+            AutoUseWeeklyWaitMinutes = Models.LowUsageAutoUse.NormalizedWeeklyWait(s.AutoUseWeeklyWaitMinutes),
+            ClaudeResets = s.ClaudeResets is { } rules
+                ? rules with
+                {
+                    FiveHourWaitMinutes = Models.LowUsageAutoUse.NormalizedFiveHourWait(rules.FiveHourWaitMinutes),
+                    WeeklyWaitMinutes = Models.LowUsageAutoUse.NormalizedWeeklyWait(rules.WeeklyWaitMinutes),
+                }
+                : new ClaudeResetRules(),
             Updates = s.Updates ?? new Updates.UpdatePreferences(),
         };
     }

@@ -65,6 +65,7 @@ public final class ResetCreditExpiryApplyReceiver extends BroadcastReceiver {
     static void clearState(Context context) {
         if (context == null) return;
         prefs(context).edit().clear().apply();
+        ResetAlertPreferences.clearRefillWait(context, UsageProvider.CODEX);
     }
 
     static void applyDue(Context context) {
@@ -127,18 +128,28 @@ public final class ResetCreditExpiryApplyReceiver extends BroadcastReceiver {
             int available = credits != null ? credits.availableCount
                     : snapshot.resetCreditsAvailable;
             SharedPreferences prefs = prefs(context);
+            long now = System.currentTimeMillis();
             ResetCreditLowUsageAutoUse decision = ResetCreditLowUsageAutoUse.evaluate(snapshot,
                     ResetCreditLowUsageAutoUse.METRIC_BOTH,
                     ResetAlertPreferences.resetCreditLowUsageThreshold(context),
                     available, prefs.getString(KEY_LOW_USAGE_WINDOW, ""),
-                    System.currentTimeMillis());
+                    ResetAlertPreferences.lowUsageWaitMinutes(context, UsageProvider.CODEX,
+                            false),
+                    ResetAlertPreferences.lowUsageWaitMinutes(context, UsageProvider.CODEX,
+                            true),
+                    now);
             if (!decision.fires()) {
+                if (ResetCreditLowUsageAutoUse.SKIP_RESET_IMMINENT.equals(decision.outcome)) {
+                    ResetAlertPreferences.recordRefillWait(context, UsageProvider.CODEX,
+                            decision.windowLabel, decision.resetAtMillis, now);
+                }
                 if (!ResetCreditLowUsageAutoUse.WAIT.equals(decision.outcome)) {
                     DiagnosticLog.info(context, "user", "reset_credit_low_usage_skipped",
                             "reason", decision.outcome, "window", decision.windowLabel);
                 }
                 return;
             }
+            ResetAlertPreferences.clearRefillWait(context, UsageProvider.CODEX);
             try {
                 DiagnosticLog.info(context, "user", "reset_credit_low_usage_started",
                         "window", decision.windowLabel,

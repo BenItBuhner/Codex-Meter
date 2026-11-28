@@ -114,7 +114,9 @@ public enum LowUsageAutoUseMetric: String, Codable, Sendable, CaseIterable, Iden
 
 /// Pure decision: use one banked reset when a window's remaining allowance drops to the chosen
 /// threshold. Fires at most once per usage window, never from a stale snapshot, and never when
-/// that window refills on its own within 15 minutes. Mirrors Android's ResetCreditLowUsageAutoUse.
+/// that window refills on its own within the wait the user chose for it (15 minutes unless
+/// changed; the 5-hour and weekly limits each have their own). Mirrors Android's
+/// ResetCreditLowUsageAutoUse.
 public struct LowUsageAutoUse: Sendable, Equatable {
     public enum Outcome: String, Sendable, Equatable {
         case fire
@@ -126,7 +128,12 @@ public struct LowUsageAutoUse: Sendable, Equatable {
 
     public static let thresholdOptions: [Int] = [0, 1, 2, 5, 10]
     public static let defaultThreshold = 1
-    public static let imminentReset: TimeInterval = 15 * 60
+    /// The default wait: a window that refills on its own this soon is not worth a reset.
+    public static let defaultWaitMinutes = 15
+    /// Waits offered for the 5-hour limit, in minutes. 0 never waits.
+    public static let fiveHourWaitOptions: [Int] = [0, 5, 15, 30, 60, 120, 180, 240]
+    /// Waits offered for the weekly (or monthly) limit, in minutes, up to 3 days.
+    public static let weeklyWaitOptions: [Int] = [0, 15, 30, 60, 180, 360, 720, 1440, 2880, 4320]
     public static let maxSnapshotAge: TimeInterval = 2 * 60
 
     public let outcome: Outcome
@@ -135,11 +142,50 @@ public struct LowUsageAutoUse: Sendable, Equatable {
     public let remainingPercent: Int
     /// Identifies the usage window, so the rule fires only once per window.
     public let windowToken: String
+    /// When the picked window refills on its own; nil while waiting or when unknown.
+    public let resetAt: Date?
 
     public var fires: Bool { outcome == .fire }
 
+    public init(outcome: Outcome, windowLabel: String, remainingPercent: Int, windowToken: String,
+                resetAt: Date? = nil) {
+        self.outcome = outcome
+        self.windowLabel = windowLabel
+        self.remainingPercent = remainingPercent
+        self.windowToken = windowToken
+        self.resetAt = resetAt
+    }
+
     public static func normalizedThreshold(_ value: Int) -> Int {
         thresholdOptions.contains(value) ? value : defaultThreshold
+    }
+
+    /// A stored 5-hour wait, or the default when it isn't one of the offered values.
+    public static func normalizedFiveHourWait(_ minutes: Int) -> Int {
+        fiveHourWaitOptions.contains(minutes) ? minutes : defaultWaitMinutes
+    }
+
+    /// A stored weekly wait, or the default when it isn't one of the offered values.
+    public static func normalizedWeeklyWait(_ minutes: Int) -> Int {
+        weeklyWaitOptions.contains(minutes) ? minutes : defaultWaitMinutes
+    }
+
+    /// "Don't wait", "5 minutes", "1 hour", "12 hours", "1 day", "3 days".
+    public static func waitLabel(_ minutes: Int) -> String {
+        if minutes <= 0 { return "Don't wait" }
+        if minutes < 60 { return minutes == 1 ? "1 minute" : "\(minutes) minutes" }
+        if minutes < 1440 || minutes % 1440 != 0 {
+            let hours = minutes / 60
+            return hours == 1 ? "1 hour" : "\(hours) hours"
+        }
+        let days = minutes / 1440
+        return days == 1 ? "1 day" : "\(days) days"
+    }
+
+    /// True when `resetAt` is still ahead and no more than the wait away (inclusive).
+    public static func refillsWithin(_ resetAt: Date?, waitMinutes: Int, now: Date) -> Bool {
+        guard waitMinutes > 0, let resetAt, resetAt > now else { return false }
+        return resetAt.timeIntervalSince(now) <= TimeInterval(waitMinutes * 60)
     }
 
     /// - Parameter availableCredits: banked credits available now; nil means unknown and the
@@ -150,6 +196,8 @@ public struct LowUsageAutoUse: Sendable, Equatable {
         threshold: Int,
         availableCredits: Int?,
         lastFiredToken: String?,
+        fiveHourWaitMinutes: Int = defaultWaitMinutes,
+        weeklyWaitMinutes: Int = defaultWaitMinutes,
         now: Date
     ) -> LowUsageAutoUse {
         guard let snapshot,
@@ -157,34 +205,38 @@ public struct LowUsageAutoUse: Sendable, Equatable {
             return waiting
         }
         let limit = normalizedThreshold(threshold)
-        var candidates: [(UsageWindow, String)] = []
+        var candidates: [(window: UsageWindow, label: String, fiveHour: Bool)] = []
         if metric != .weekly, let window = current(snapshot.fiveHour, snapshot, now) {
-            candidates.append((window, "5-hour"))
+            candidates.append((window, "5-hour", true))
         }
         if metric != .fiveHour, let window = current(snapshot.longWindow, snapshot, now) {
-            candidates.append((window, snapshot.longWindowIsMonthly ? "monthly" : "weekly"))
+            candidates.append((window, snapshot.longWindowIsMonthly ? "monthly" : "weekly", false))
         }
-        guard let (window, label) = candidates
-            .filter({ $0.0.remainingPercent <= limit })
-            .min(by: { $0.0.remainingPercent < $1.0.remainingPercent }) else {
+        guard let pick = candidates
+            .filter({ $0.window.remainingPercent <= limit })
+            .min(by: { $0.window.remainingPercent < $1.window.remainingPercent }) else {
             return waiting
         }
+        let window = pick.window
+        let label = pick.label
         let resetAt = window.effectiveResetDate(relativeTo: snapshot.fetchedAt)
         let token = "\(label):\(Int((resetAt?.timeIntervalSince1970 ?? 0) * 1000))"
+        func decision(_ outcome: Outcome) -> LowUsageAutoUse {
+            LowUsageAutoUse(outcome: outcome, windowLabel: label, remainingPercent: window.remainingPercent,
+                            windowToken: token, resetAt: resetAt)
+        }
         if sameWindow(lastFiredToken, label: label, resetAt: resetAt, window: window) {
-            return LowUsageAutoUse(outcome: .skipAlreadyUsed, windowLabel: label,
-                                   remainingPercent: window.remainingPercent, windowToken: token)
+            return decision(.skipAlreadyUsed)
         }
         if availableCredits == 0 {
-            return LowUsageAutoUse(outcome: .skipNoCredit, windowLabel: label,
-                                   remainingPercent: window.remainingPercent, windowToken: token)
+            return decision(.skipNoCredit)
         }
-        if let resetAt, resetAt > now, resetAt.timeIntervalSince(now) <= imminentReset {
-            return LowUsageAutoUse(outcome: .skipResetImminent, windowLabel: label,
-                                   remainingPercent: window.remainingPercent, windowToken: token)
+        let wait = pick.fiveHour ? normalizedFiveHourWait(fiveHourWaitMinutes)
+            : normalizedWeeklyWait(weeklyWaitMinutes)
+        if refillsWithin(resetAt, waitMinutes: wait, now: now) {
+            return decision(.skipResetImminent)
         }
-        return LowUsageAutoUse(outcome: .fire, windowLabel: label,
-                               remainingPercent: window.remainingPercent, windowToken: token)
+        return decision(.fire)
     }
 
     private static let waiting = LowUsageAutoUse(
@@ -221,5 +273,85 @@ public struct LowUsageAutoUse: Sendable, Equatable {
             rightReset: resetAt,
             rightWindowSeconds: window.windowSeconds
         )
+    }
+}
+
+/// A running-low use held back because the limit refills on its own within the chosen wait,
+/// kept so Settings can say why no reset was spent. Shown until that limit refills.
+public struct RefillWait: Codable, Sendable, Equatable {
+    /// "5-hour", "weekly" or "monthly".
+    public let windowLabel: String
+    public let resetAt: Date
+    public let skippedAt: Date
+
+    public init(windowLabel: String, resetAt: Date, skippedAt: Date) {
+        self.windowLabel = windowLabel
+        self.resetAt = resetAt
+        self.skippedAt = skippedAt
+    }
+
+    public func isActive(at now: Date) -> Bool { resetAt > now && !windowLabel.isEmpty }
+
+    /// "Your weekly limit refills on its own tomorrow at 9:00 AM, so no reset was used."
+    public func summary(formatWhen: (Date) -> String) -> String {
+        "Your \(windowLabel) limit refills on its own \(formatWhen(resetAt)), so no reset was used."
+    }
+
+    /// The wait to remember after a decision: a new hold, cleared after a use, else unchanged
+    /// while its limit hasn't refilled.
+    public static func after(_ current: RefillWait?, decision: LowUsageAutoUse, now: Date) -> RefillWait? {
+        switch decision.outcome {
+        case .skipResetImminent:
+            if let resetAt = decision.resetAt {
+                return RefillWait(windowLabel: decision.windowLabel, resetAt: resetAt, skippedAt: now)
+            }
+        case .fire:
+            return nil
+        default:
+            break
+        }
+        return current?.isActive(at: now) == true ? current : nil
+    }
+
+    /// The same for a Claude Code saved-reset decision.
+    public static func after(_ current: RefillWait?, claude decision: ClaudeResetAutoUse, now: Date) -> RefillWait? {
+        switch decision.outcome {
+        case .skipRefillsSoon:
+            if let resetAt = decision.resetAt {
+                return RefillWait(windowLabel: decision.windowLabel, resetAt: resetAt, skippedAt: now)
+            }
+        case .fireLowUsage:
+            return nil
+        default:
+            break
+        }
+        return current?.isActive(at: now) == true ? current : nil
+    }
+}
+
+/// Where each provider's held-back running-low use is kept on this device (never exported).
+public enum RefillWaitStore {
+    public static let codexKey = "codexMeter.autoUse.refillWait"
+    public static let claudeKey = "codex-meter.claude-reset-refill-wait-v1"
+
+    public static func load(_ key: String, defaults: UserDefaults = .standard) -> RefillWait? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(RefillWait.self, from: data)
+    }
+
+    /// Saves the wait after a decision (nil removes it); writes only when it changed.
+    public static func save(_ wait: RefillWait?, _ key: String, defaults: UserDefaults = .standard) {
+        guard wait != load(key, defaults: defaults) else { return }
+        if let wait, let data = try? JSONEncoder().encode(wait) {
+            defaults.set(data, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    /// The wait to show now: one whose limit hasn't refilled yet.
+    public static func active(_ key: String, now: Date = Date(), defaults: UserDefaults = .standard) -> RefillWait? {
+        guard let wait = load(key, defaults: defaults), wait.isActive(at: now) else { return nil }
+        return wait
     }
 }

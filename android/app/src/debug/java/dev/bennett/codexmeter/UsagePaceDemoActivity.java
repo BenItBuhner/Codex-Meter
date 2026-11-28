@@ -148,6 +148,9 @@ public final class UsagePaceDemoActivity extends Activity {
         if (claudeScenario != null && !claudeScenario.isEmpty()) {
             try {
                 seedClaude(claudeScenario);
+                if (getIntent().getBooleanExtra("reset_refill_wait", false)) {
+                    seedRefillWait();
+                }
                 // "claude_open": "priority" opens the Priority tab, "reset" the reset screen.
                 String open = getIntent().getStringExtra("claude_open");
                 PriorityPrefs.setViewEnabled(this, true);
@@ -603,5 +606,21 @@ public final class UsagePaceDemoActivity extends Activity {
                     now - TimeUnit.MINUTES.toMillis(48L - 12L * point));
         }
         AppPreferences.saveUsageHistory(this, weekly);
+    }
+
+    /**
+     * "reset_refill_wait": running-low use on for both providers with a one-day weekly wait, and
+     * a Codex use held back because the weekly limit refills on its own in 20 hours (issue #214).
+     */
+    private void seedRefillWait() {
+        long now = System.currentTimeMillis();
+        for (UsageProvider provider
+                : new UsageProvider[] {UsageProvider.CODEX, UsageProvider.CLAUDE_CODE}) {
+            ResetAlertPreferences.setLowUsageAutoUseEnabled(this, provider, true);
+            ResetAlertPreferences.setLowUsageWaitMinutes(this, provider, false, 60);
+            ResetAlertPreferences.setLowUsageWaitMinutes(this, provider, true, 1440);
+        }
+        ResetAlertPreferences.recordRefillWait(this, UsageProvider.CODEX, "weekly",
+                now + TimeUnit.HOURS.toMillis(20), now);
     }
 }

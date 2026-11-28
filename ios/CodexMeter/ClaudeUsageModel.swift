@@ -287,7 +287,14 @@ final class ClaudeUsageModel {
             threshold: settings.claudeResetLowUsageThreshold,
             lastExpiryKey: defaults.string(forKey: Self.expiryAttemptKey),
             lastLowUsageToken: defaults.string(forKey: Self.lowUsageAttemptKey),
+            fiveHourWaitMinutes: settings.claudeResetFiveHourWaitMinutes,
+            weeklyWaitMinutes: settings.claudeResetWeeklyWaitMinutes,
             now: .now
+        )
+        RefillWaitStore.save(
+            RefillWait.after(RefillWaitStore.load(RefillWaitStore.claudeKey, defaults: defaults),
+                             claude: decision, now: .now),
+            RefillWaitStore.claudeKey, defaults: defaults
         )
         guard decision.fires, let grant = decision.grant else { return }
         // Remember the attempt first, so a failure is never retried in a loop.
