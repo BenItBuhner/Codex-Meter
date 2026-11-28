@@ -108,6 +108,7 @@ final class MacUpdaterTests: XCTestCase {
         XCTAssertNil(MacReleaseFeed.expectedSha256(String(repeating: "zz", count: 32) + "  a.zip", for: "a.zip"))
     }
 
+    @MainActor
     func testCheckFrequencyLabels() {
         XCTAssertEqual(MacUpdater.frequencyTitle(1), "Hourly")
         XCTAssertEqual(MacUpdater.frequencyTitle(24), "Daily")
