@@ -506,13 +506,18 @@ public final class ProviderPreferences {
                 .apply();
     }
 
-    /** Removes cached usage, history, errors, and identity for a non-Codex provider. */
     /**
      * Forgets a provider's last reading and account email but keeps its history: for a new
-     * sign-in that may or may not be the same account.
+     * sign-in that may or may not be the same account. Codex keeps its reading in
+     * {@link AppPreferences}, so that is where its reading goes.
      */
     public static void clearReading(Context context, UsageProvider provider) {
-        if (provider == UsageProvider.CODEX) return;
+        if (provider == UsageProvider.CODEX) {
+            AppPreferences.clearReading(context);
+            prefs(context).edit().remove(provider.id + SUFFIX_EMAIL).apply();
+            PhoneWearSync.pushUsage(context, null);
+            return;
+        }
         prefs(context).edit()
                 .remove(provider.id + SUFFIX_SNAPSHOT)
                 .remove(provider.id + SUFFIX_ERROR)
@@ -521,8 +526,13 @@ public final class ProviderPreferences {
                 .commit();
     }
 
+    /**
+     * Removes cached usage, history, errors, and identity for one provider. Codex keeps its
+     * usage, reset credits and history in {@link AppPreferences}; those go too, so a new sign-in
+     * with another ChatGPT account never shows the old account's plan or history.
+     */
     public static void clearProvider(Context context, UsageProvider provider) {
-        if (provider == UsageProvider.CODEX) return;
+        if (provider == UsageProvider.CODEX) AppPreferences.clearSnapshot(context);
         prefs(context).edit()
                 .remove(provider.id + SUFFIX_HISTORY + UsageHistory.FIVE_HOUR)
                 .remove(provider.id + SUFFIX_HISTORY + UsageHistory.WEEKLY)
