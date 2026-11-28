@@ -462,7 +462,7 @@ public sealed class SettingsPage : PageBase
 
     /// <summary>An expander whose switch turns an auto-use rule on, with its one option inside.</summary>
     private static SettingsExpander RuleExpander(string header, string description, string glyph, string id, bool on, Action<bool> changed,
-        string optionHeader, FrameworkElement option)
+        string optionHeader, FrameworkElement option, params (string Header, FrameworkElement Option)[] more)
     {
         var expander = new SettingsExpander
         {
@@ -472,6 +472,7 @@ public sealed class SettingsPage : PageBase
             Content = Toggle(id, on, changed),
         };
         expander.Items.Add(new SettingsCard { Header = optionHeader, Content = option });
+        foreach (var (moreHeader, moreOption) in more) expander.Items.Add(new SettingsCard { Header = moreHeader, Content = moreOption });
         return expander;
     }
 
