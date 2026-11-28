@@ -14,6 +14,10 @@
     <ProjectReference Include="..\..\src\CodexMeter.Linux\CodexMeter.Linux.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The Codex response shapes every platform's parser tests share. -->
+    <None Include="..\..\..\ios\CodexMeterCore\Tests\CodexMeterCoreTests\Fixtures\*.json" LinkBase="Fixtures" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 </Project>

@@ -390,10 +390,11 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: Install GTK 4 and libadwaita
+      - name: Install GTK 4, libadwaita and a virtual display
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libgtk-4-dev libadwaita-1-dev libsecret-1-0
+          sudo apt-get install -y --no-install-recommends libgtk-4-dev libadwaita-1-dev libsecret-1-0 \
+            adwaita-icon-theme xvfb xauth dbus dbus-x11
       - name: Build with warnings as errors
         run: |
           dotnet build windows/tests/CodexMeter.Core.Tests -warnaserror
@@ -406,8 +407,15 @@ jobs:
           done
       - name: Core tests
         run: dotnet test windows/tests/CodexMeter.Core.Tests --no-build
+      # The page tests build the real GTK windows (UiHost.cs), so they need a display; cairo
+      # drawing and no GL, as in the Linux budgets below.
       - name: Linux tests
-        run: dotnet test linux/tests/CodexMeter.Linux.Tests --no-build
+        env:
+          GSK_RENDERER: cairo
+          GDK_DEBUG: gl-disable
+        run: |
+          xvfb-run -a -s "-screen 0 1400x1000x24" dbus-run-session -- \
+            dotnet test linux/tests/CodexMeter.Linux.Tests --no-build
 
   windows-app:
     name: Windows app build

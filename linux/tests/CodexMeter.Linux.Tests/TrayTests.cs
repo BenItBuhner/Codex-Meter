@@ -11,15 +11,7 @@ public class TrayTests
     // Gir.Core maps its library names ("cairo-graphics") to the system's sonames on initialization.
     static TrayTests() => Cairo.Module.Initialize();
 
-    private static async Task<AppState> DemoStateAsync(IEnumerable<string>? signedOut = null)
-    {
-        var context = new ProviderContext(ProviderHttp.CreateClient(), new MemoryTokenStore(), new ProviderCacheStore(null));
-        var hub = await ProviderHub.DemoAsync(context, signedOut);
-        var state = new AppState(hub, new SettingsStore(null), new UsageHistoryStore(null));
-        await state.InitializeAsync();
-        foreach (var provider in hub.Providers) await state.RefreshAsync(provider, force: true);
-        return state;
-    }
+    private static Task<AppState> DemoStateAsync(IEnumerable<string>? signedOut = null) => States.DemoAsync(signedOut);
 
     [Fact]
     public async Task SummaryListsEverySignedInProvider()
