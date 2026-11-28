@@ -117,9 +117,10 @@ public static class ProviderUsageParsers
         if (text.Length == 0 || text == "null") return 0;
         if (NumericText.IsMatch(text))
             return EpochSeconds(double.Parse(text, CultureInfo.InvariantCulture));
+        // A time with no zone (Chutes' naive timestamps) is read as UTC with its time of day,
+        // not cut back to midnight.
         if (text.Length > 10 && text.Contains('T')
-            && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var instant)
-            && HasZone(text))
+            && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var instant))
             return instant.ToUnixTimeSeconds();
         if (text.Length >= 10 && DateTime.TryParseExact(text[..10], "yyyy-MM-dd", CultureInfo.InvariantCulture,
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var day))
@@ -127,12 +128,6 @@ public static class ProviderUsageParsers
         return 0;
     }
 
-    /// <summary>Only full instants count (with Z or an offset), as ISO8601DateFormatter requires.</summary>
-    private static bool HasZone(string text)
-    {
-        var time = text[(text.IndexOf('T') + 1)..];
-        return time.EndsWith('Z') || time.EndsWith('z') || time.Contains('+') || time.Contains('-');
-    }
 
     internal static double Number(JsonObject? o, params string[] keys)
     {
@@ -210,7 +205,11 @@ public static class ProviderUsageParsers
         return from > 0 && to > from ? to - from : fallback;
     }
 
-    internal static double RatioPercent(double ratio) => ratio <= 1 ? ratio * 100 : ratio;
+    /// <summary>
+    /// A field named a ratio (<c>used_ratio</c>, <c>usedRatio</c>) is always a fraction of the
+    /// limit, so 1.2 is 120% (over the limit), never 1.2%.
+    /// </summary>
+    internal static double RatioPercent(double ratio) => ratio * 100;
 
     // ------------------------------------------------------------------ GitHub Copilot
 

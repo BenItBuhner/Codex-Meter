@@ -114,6 +114,27 @@ public class ClaudeUsageParserTests
     }
 
     [Fact]
+    public void ClaudeIdleSessionIsAnEmptyFiveHourLimit()
+    {
+        // Pro/Max with no session running: the session row (or five_hour) has no number. That is
+        // a 5-hour limit with nothing used, not "No 5-hour limit on this plan".
+        var fromLimits = ClaudeUsageParser.Parse("""
+            {"limits": [{"kind": "session", "group": "session", "percent": null},
+                        {"kind": "weekly_all", "group": "weekly", "percent": 20}]}
+            """, "Pro", At);
+        Assert.Equal(0, fromLimits.FiveHour!.UsedPercent);
+        Assert.Equal(ClaudeUsageParser.FiveHourSeconds, fromLimits.FiveHour.WindowSeconds);
+        Assert.Null(fromLimits.FiveHour.ResetAt);
+        Assert.Equal(20, fromLimits.Weekly!.UsedPercent);
+
+        var legacy = ClaudeUsageParser.Parse("""
+            {"five_hour": {"utilization": null, "resets_at": null}, "seven_day": {"utilization": 5}}
+            """, "Max", At);
+        Assert.Equal(0, legacy.FiveHour!.UsedPercent);
+        Assert.False(legacy.LimitReached);
+    }
+
+    [Fact]
     public void ClaudeUltraWithoutFiveHourLimitStillLoads()
     {
         // Verified Ultra (October 2026): five_hour is null and limits[] has no session row.

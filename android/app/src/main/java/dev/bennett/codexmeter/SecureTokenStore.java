@@ -66,6 +66,27 @@ public final class SecureTokenStore {
                 : "codex_meter_" + provider.id + "_auth_key_v1";
     }
 
+    /**
+     * Saves the tokens a sign-in (not a token refresh) returned. Signing in again over a saved
+     * sign-in can be a different account, whose numbers must never show the old account's plan,
+     * email, history or held reading, so those go first; see {@link SignInAccount}.
+     */
+    public static void saveSignIn(Context context, UsageProvider provider, AuthTokens authTokens)
+            throws Exception {
+        AuthTokens previous = DemoMode.isOn(context, provider) ? null : load(context, provider);
+        save(context, provider, authTokens);
+        SignInAccount.Change change = SignInAccount.compare(previous, authTokens);
+        if (change == SignInAccount.Change.SAME) return;
+        DiagnosticLog.info(context, "auth", "sign_in_account_changed", "provider", provider.id,
+                "change", change.name().toLowerCase(java.util.Locale.ROOT));
+        if (change == SignInAccount.Change.DIFFERENT) {
+            ProviderPreferences.clearProvider(context, provider);
+        } else {
+            ProviderPreferences.clearReading(context, provider);
+        }
+        RefillHold.clear(context, provider);
+    }
+
     public static void save(Context context, UsageProvider provider, AuthTokens authTokens)
             throws Exception {
         // A real sign-in replaces the demo account: its sample usage goes first.

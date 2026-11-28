@@ -167,6 +167,21 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(ratios.fiveHour?.usedPercent, 40)
         XCTAssertEqual(ratios.weekly?.usedPercent, 10)
         XCTAssertEqual(resetSeconds(ratios.weekly), 1_790_500_000)
+        // A ratio over 1 is over the limit, not 1%.
+        let over = ProviderUsageParsers.kimi(#"{"usages":{"limit_5h":{"used_ratio":1.2},"limit_7d":{"used_ratio":0.01}}}"#, now: now)
+        XCTAssertEqual(over.fiveHour?.usedPercent, 100)
+        XCTAssertEqual(over.weekly?.usedPercent, 1)
+    }
+
+    func testZonelessTimesKeepTheirTimeOfDayAsUTC() {
+        XCTAssertEqual(ProviderUsageParsers.epochSeconds("2026-12-01T15:30:00"),
+                       ProviderUsageParsers.epochSeconds("2026-12-01T15:30:00Z"))
+        XCTAssertEqual(ProviderUsageParsers.epochSeconds("2026-12-01T15:30:00.123456"),
+                       ProviderUsageParsers.epochSeconds("2026-12-01T15:30:00Z"))
+        XCTAssertEqual(ProviderUsageParsers.epochSeconds("2026-12-01"),
+                       ProviderUsageParsers.epochSeconds("2026-12-01T00:00:00Z"))
+        let naive = ProviderUsageParsers.chutes(#"{"subscription":true,"monthly_price":20,"four_hour":{"usage":1,"cap":4,"remaining":3,"reset_at":"2026-09-21T16:00:00"}}"#, now: now)
+        XCTAssertEqual(resetSeconds(naive.fiveHour), ProviderUsageParsers.epochSeconds("2026-09-21T16:00:00Z"))
     }
 
     func testFactory() {

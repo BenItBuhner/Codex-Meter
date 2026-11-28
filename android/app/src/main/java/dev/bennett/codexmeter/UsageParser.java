@@ -55,6 +55,21 @@ public final class UsageParser {
         UsageWindow fiveHour = nearestExcluding(windows, FIVE_HOURS, 10800L, 28800L);
         UsageWindow weekly = nearestExcluding(windows, WEEK, 432000L, 777600L, fiveHour);
         UsageWindow monthly = nearestExcluding(windows, MONTH, MONTH_MIN, MONTH_MAX, fiveHour, weekly);
+        // Go and similar plans sometimes report a single window just outside the standard
+        // 5-hour / weekly / 10-45-day buckets. Keep that window visible, as iOS and Windows do.
+        if (fiveHour == null && weekly == null && monthly == null && !windows.isEmpty()) {
+            UsageWindow leftover = windows.get(0);
+            for (UsageWindow window : windows) {
+                if (window.windowSeconds > leftover.windowSeconds) leftover = window;
+            }
+            if (leftover.windowSeconds >= MONTH_MIN) {
+                monthly = leftover;
+            } else if (leftover.windowSeconds >= 86400L) {
+                weekly = leftover;
+            } else {
+                fiveHour = leftover;
+            }
+        }
         JSONObject resetCredits = nullableObject(root, "rate_limit_reset_credits");
         return new UsageSnapshot(
                 planType,

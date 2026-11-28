@@ -507,6 +507,20 @@ public final class ProviderPreferences {
     }
 
     /** Removes cached usage, history, errors, and identity for a non-Codex provider. */
+    /**
+     * Forgets a provider's last reading and account email but keeps its history: for a new
+     * sign-in that may or may not be the same account.
+     */
+    public static void clearReading(Context context, UsageProvider provider) {
+        if (provider == UsageProvider.CODEX) return;
+        prefs(context).edit()
+                .remove(provider.id + SUFFIX_SNAPSHOT)
+                .remove(provider.id + SUFFIX_ERROR)
+                .remove(provider.id + SUFFIX_ERROR_AT)
+                .remove(provider.id + SUFFIX_EMAIL)
+                .commit();
+    }
+
     public static void clearProvider(Context context, UsageProvider provider) {
         if (provider == UsageProvider.CODEX) return;
         prefs(context).edit()

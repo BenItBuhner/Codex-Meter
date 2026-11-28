@@ -143,11 +143,25 @@ public final class ProviderUsageParsers {
             // Try the next shape.
         }
         try {
+            // A time with no zone (Chutes' naive timestamps) is UTC with its time of day.
+            return java.time.LocalDateTime.parse(text).toEpochSecond(ZoneOffset.UTC);
+        } catch (Exception ignored) {
+            // Try the next shape.
+        }
+        try {
             return LocalDate.parse(text.length() > 10 ? text.substring(0, 10) : text)
                     .atStartOfDay().toEpochSecond(ZoneOffset.UTC);
         } catch (Exception ignored) {
             return 0L;
         }
+    }
+
+    /**
+     * A field named a ratio ({@code used_ratio}, {@code usedRatio}) is always a fraction of the
+     * limit, so 1.2 is 120% (over the limit), never 1.2%.
+     */
+    static double ratioPercent(double ratio) {
+        return ratio * 100.0;
     }
 
     static double number(JSONObject object, String... keys) {
@@ -382,7 +396,7 @@ public final class ProviderUsageParsers {
         if (entry == null) return;
         double ratio = number(entry, "used_ratio", "usedRatio");
         if (Double.isNaN(ratio)) return;
-        double percent = ratio <= 1.0 ? ratio * 100.0 : ratio;
+        double percent = ratioPercent(ratio);
         out.add(durationName(seconds) + " limit", window(percent, seconds,
                 epochSeconds(first(entry, "reset_time", "resetTime")), out.now));
     }
@@ -459,7 +473,7 @@ public final class ProviderUsageParsers {
         double used = number(entry, "usedPercent", "used_percent");
         if (Double.isNaN(used)) {
             double ratio = number(entry, "usedRatio", "used_ratio");
-            if (!Double.isNaN(ratio)) used = ratio <= 1.0 ? ratio * 100.0 : ratio;
+            if (!Double.isNaN(ratio)) used = ratioPercent(ratio);
         }
         long reset = epochSeconds(first(entry, "windowEnd", "window_end", "resetAt"));
         if (reset <= 0) {
@@ -486,7 +500,7 @@ public final class ProviderUsageParsers {
             JSONObject entry = usage.optJSONObject(key);
             if (entry == null) continue;
             double ratio = number(entry, "usedRatio");
-            double percent = !Double.isNaN(ratio) ? (ratio <= 1.0 ? ratio * 100.0 : ratio)
+            double percent = !Double.isNaN(ratio) ? ratioPercent(ratio)
                     : percentUsed(number(entry, "totalAllowance"), number(entry, "userTokens",
                             "orgTotalTokensUsed"), Double.NaN);
             UsageWindow window = window(percent, seconds, reset, now);
@@ -1041,12 +1055,15 @@ public final class ProviderUsageParsers {
         long fallbackReset = epochSeconds(first(root, "nextDateReset", "resetDate"));
         if (list != null) {
             // Kiro's credits (resourceType CREDIT) are the plan's main meter; list them first.
+            // Only the first CREDIT entry moves, as on iOS and Windows.
             List<JSONObject> entries = new ArrayList<>();
+            boolean creditFirst = false;
             for (int i = 0; i < list.length(); i++) {
                 JSONObject entry = list.optJSONObject(i);
                 if (entry == null) continue;
-                if ("CREDIT".equalsIgnoreCase(string(entry, "resourceType"))) {
+                if (!creditFirst && "CREDIT".equalsIgnoreCase(string(entry, "resourceType"))) {
                     entries.add(0, entry);
+                    creditFirst = true;
                 } else {
                     entries.add(entry);
                 }

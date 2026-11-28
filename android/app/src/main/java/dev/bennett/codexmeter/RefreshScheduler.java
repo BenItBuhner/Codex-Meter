@@ -18,6 +18,8 @@ public final class RefreshScheduler {
     private static final int SHORT_JOB_ID_B = 73104;
     private static final int REFILL_CHECK_JOB_ID = 73105;
     private static final int USER_REFRESH_JOB_ID = 73106;
+    /** A widget's Refresh button; its own id, so it never replaces a live monitor tap. */
+    private static final int WIDGET_REFRESH_JOB_ID = 73107;
     /** The user tapped Refresh outside the app: fetch one provider now, however fresh it is. */
     static final String REASON_USER_REFRESH = "user_refresh";
     static final String EXTRA_PROVIDER = "provider";
@@ -172,13 +174,38 @@ public final class RefreshScheduler {
      * network constraint, so with no connection it fails at once instead of waiting.
      */
     static boolean scheduleUserRefresh(Context context, UsageProvider provider) {
+        if (provider == null) return false;
+        return scheduleUserRefresh(context, java.util.Collections.singletonList(provider),
+                USER_REFRESH_JOB_ID);
+    }
+
+    /**
+     * A widget's Refresh button: fetches every provider the widget shows, however fresh its
+     * reading is, the same way as {@link #scheduleUserRefresh(Context, UsageProvider)}.
+     */
+    static boolean scheduleWidgetRefresh(Context context, java.util.List<UsageProvider> providers) {
+        return scheduleUserRefresh(context, providers, WIDGET_REFRESH_JOB_ID);
+    }
+
+    private static boolean scheduleUserRefresh(Context context,
+            java.util.List<UsageProvider> providers, int jobId) {
         Context app = appContext(context);
-        if (app == null || provider == null) return false;
-        if (!SecureTokenStore.isSignedIn(app, provider)) return scheduleImmediate(app);
-        DiagnosticLog.info(app, "scheduler", "user_refresh_requested", "provider", provider.id);
+        if (app == null || providers == null) return false;
+        java.util.List<UsageProvider> targets = new java.util.ArrayList<>();
+        for (UsageProvider provider : providers) {
+            if (provider != null && !targets.contains(provider)
+                    && (SecureTokenStore.isSignedIn(app, provider)
+                            || DemoMode.isOn(app, provider))) {
+                targets.add(provider);
+            }
+        }
+        if (targets.isEmpty()) return scheduleImmediate(app);
+        String ids = WidgetProviders.serialize(targets);
+        DiagnosticLog.info(app, "scheduler", "user_refresh_requested", "provider", ids,
+                "job_id", jobId);
         if (android.os.Build.VERSION.SDK_INT >= 31) {
             try {
-                if (submit(app, userRefreshJob(app, provider).setExpedited(true).build())) {
+                if (submit(app, userRefreshJob(app, ids, jobId).setExpedited(true).build())) {
                     return true;
                 }
             } catch (RuntimeException e) {
@@ -188,18 +215,23 @@ public final class RefreshScheduler {
             }
         }
         try {
-            return submit(app, userRefreshJob(app, provider)
+            return submit(app, userRefreshJob(app, ids, jobId)
                     .setMinimumLatency(0L).setOverrideDeadline(5000L).build());
         } catch (RuntimeException e) {
             return failed(app, e);
         }
     }
 
-    private static JobInfo.Builder userRefreshJob(Context app, UsageProvider provider) {
+    /** Providers a user refresh job fetches, from its extras; an older single id still reads. */
+    static java.util.List<UsageProvider> userRefreshTargets(PersistableBundle extras) {
+        return WidgetProviders.parse(extras == null ? null : extras.getString(EXTRA_PROVIDER, ""));
+    }
+
+    private static JobInfo.Builder userRefreshJob(Context app, String providerIds, int jobId) {
         PersistableBundle extras = new PersistableBundle();
         extras.putString("reason", REASON_USER_REFRESH);
-        extras.putString(EXTRA_PROVIDER, provider.id);
-        return new JobInfo.Builder(USER_REFRESH_JOB_ID,
+        extras.putString(EXTRA_PROVIDER, providerIds);
+        return new JobInfo.Builder(jobId,
                 new ComponentName(app, UsageRefreshJobService.class))
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
                 .setExtras(extras);
@@ -257,6 +289,7 @@ public final class RefreshScheduler {
                     jobSchedulerScheduler.cancel(SHORT_JOB_ID_B);
                     jobSchedulerScheduler.cancel(REFILL_CHECK_JOB_ID);
                     jobSchedulerScheduler.cancel(USER_REFRESH_JOB_ID);
+                    jobSchedulerScheduler.cancel(WIDGET_REFRESH_JOB_ID);
                     AppPreferences.setSchedulerError(contextAppContext, "");
                     DiagnosticLog.info(contextAppContext, "scheduler",
                             "all_refresh_jobs_cancelled");
