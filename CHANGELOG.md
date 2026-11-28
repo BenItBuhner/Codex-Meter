@@ -4,7 +4,8 @@
 
 ### Changed
 
-- **More is a list you go into, like on iPhone.** With more providers than the tab bar holds, More no longer opens a sheet. It shows a page listing the other providers; tap one and its page slides in with Back to More. Back, Android's back gesture, an edge swipe or tapping More again returns to the list, and More remembers which provider it showed when you switch tabs and come back. The Duo layout's column gets a Back button for it too. iPhone already used Apple's own More list and now has tests for it. Liquid Glass, Android.
+- **More is a list you go into, like on iPhone.** With more providers than the tab bar holds, More no longer opens a sheet. It shows a page listing the other providers; tap one and its page slides in with Back to More. Back, Android's back gesture, an edge swipe or tapping More again returns to the list, and More remembers which provider it showed when you switch tabs and come back. The Duo layout's column gets a Back button for it too. Liquid Glass, Android.
+- **No double bar under More on iPhone.** With six or more tabs, a provider opened from More showed two navigation bars stacked, its buttons and title pushed down under the Back bar. More now has one bar, keeps the provider it showed when you switch tabs, and tapping More again goes back to its list. iOS.
 - **Usage history highlights are a pull-down menu.** The highlights button opens a pull-down menu of switches instead of a sheet, the way Apple's apps do it. Liquid Glass, Android and iPhone.
 
 ### Fixed

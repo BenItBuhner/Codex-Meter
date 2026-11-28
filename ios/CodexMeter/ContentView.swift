@@ -3,6 +3,14 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    /// More's tab is in front (its list, or a provider pushed from it).
+    @State private var moreSelected = false
+    /// The provider More pushed, kept while other tabs are in front, as iOS's More does.
+    @State private var morePath: [UsageProvider] = []
+
+    static let moreTag = "more"
+    /// Only iPhone collapses tabs into More; iPad's sidebar lists them all.
+    static var usesMoreTab: Bool { UIDevice.current.userInterfaceIdiom == .phone }
 
     var body: some View {
         @Bindable var model = model
@@ -14,9 +22,32 @@ struct ContentView: View {
         // Priority comes first, as on Android, unless it is turned off in Settings.
         let showsPriority = model.settings.showPriority && model.hasPriorityContent
         let tabCount = model.enabledProviders.count + (showsPriority ? 1 : 0)
+        // iPhone's tab bar holds five: with more, the first four keep tabs and the rest go under
+        // More, Apple's pushed list. The app draws that More itself: the system's own More nests
+        // each provider's NavigationStack inside its navigation controller, which stacked two bars
+        // on a provider pushed from it. iPad shows every tab in the sidebar instead.
+        let overflow = Self.usesMoreTab && tabCount > 5
+        let ownProviders = overflow
+            ? Array(model.enabledProviders.prefix(showsPriority ? 3 : 4))
+            : model.enabledProviders
+        let moreProviders = overflow ? Array(model.enabledProviders.dropFirst(ownProviders.count)) : []
         TabView(selection: Binding(
-            get: { model.isPriorityTabSelected && showsPriority ? AppModel.priorityTag : model.selectedProvider.rawValue },
+            get: {
+                if overflow && (moreSelected || moreProviders.contains(model.selectedProvider)) {
+                    return Self.moreTag
+                }
+                return model.isPriorityTabSelected && showsPriority ? AppModel.priorityTag : model.selectedProvider.rawValue
+            },
             set: { tag in
+                if tag == Self.moreTag {
+                    moreSelected = true
+                    // More shows the provider it had pushed, or its list
+                    if let shown = morePath.last {
+                        model.select(provider: shown)
+                    }
+                    return
+                }
+                moreSelected = false
                 if tag == AppModel.priorityTag {
                     model.setPriorityTabSelected(true)
                 } else if let provider = UsageProvider(rawValue: tag) {
@@ -33,13 +64,25 @@ struct ContentView: View {
                 }
                 .accessibilityIdentifier("tab-priority")
             }
-            ForEach(model.enabledProviders) { provider in
+            ForEach(ownProviders) { provider in
                 Tab(provider.displayName, image: provider.markImageName, value: provider.rawValue) {
                     NavigationStack {
                         DashboardView(provider: provider)
                     }
                     .toolbar(tabCount > 1 ? .visible : .hidden, for: .tabBar)
                 }
+            }
+            if overflow {
+                Tab("More", systemImage: "ellipsis", value: Self.moreTag) {
+                    NavigationStack(path: $morePath) {
+                        MoreList(providers: moreProviders)
+                            .navigationDestination(for: UsageProvider.self) { provider in
+                                DashboardView(provider: provider)
+                                    .onAppear { model.select(provider: provider) }
+                            }
+                    }
+                }
+                .accessibilityIdentifier("tab-more")
             }
         }
         .tabViewStyle(.sidebarAdaptable)
@@ -99,6 +142,28 @@ struct ContentView: View {
             WatchSyncCoordinator.shared.publish(providers: model.watchProviders,
                                                 selectedID: selected.rawValue)
         }
+    }
+}
+
+/// More's list: a row per provider without its own tab, its mark and name; a row pushes the
+/// provider's page with Back to More.
+private struct MoreList: View {
+    let providers: [UsageProvider]
+
+    var body: some View {
+        List(providers) { provider in
+            NavigationLink(value: provider) {
+                Label {
+                    Text(provider.displayName)
+                } icon: {
+                    ProviderMark(provider: provider)
+                        .frame(width: 22, height: 22)
+                }
+            }
+            .accessibilityIdentifier("more-\(provider.rawValue)")
+        }
+        .listStyle(.plain)
+        .navigationTitle("More")
     }
 }
 
