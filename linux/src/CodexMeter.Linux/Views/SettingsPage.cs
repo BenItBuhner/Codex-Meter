@@ -135,9 +135,9 @@ public sealed class SettingsPage : IPage
             low.AddRow(Combo("Use when remaining reaches", null, thresholdLabels,
                 (uint)Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(s.AutoUseThreshold))),
                 i => state.Settings.Update(x => x with { AutoUseThreshold = thresholds[i] }), "AutoUseThresholdRow"));
-            low.AddRow(WaitCombo("Wait if the 5-hour limit refills within", false, s.AutoUseFiveHourWaitMinutes,
+            low.AddRow(WaitCombo("Wait for a 5-hour refill", false, s.AutoUseFiveHourWaitMinutes,
                 m => state.Settings.Update(x => x with { AutoUseFiveHourWaitMinutes = m }), "AutoUseFiveHourWaitRow"));
-            low.AddRow(WaitCombo("Wait if the weekly limit refills within", true, s.AutoUseWeeklyWaitMinutes,
+            low.AddRow(WaitCombo("Wait for a weekly refill", true, s.AutoUseWeeklyWaitMinutes,
                 m => state.Settings.Update(x => x with { AutoUseWeeklyWaitMinutes = m }), "AutoUseWeeklyWaitRow"));
             codex.Add(low);
             if (s.AutoUseWhenLow && ResetCreditsCard.RefillWaitText(s.AutoUseRefillWait, s, DateTimeOffset.UtcNow) is { } codexWait)
@@ -159,9 +159,9 @@ public sealed class SettingsPage : IPage
             low.AddRow(Combo("Use when remaining reaches", null, thresholdLabels,
                 (uint)Math.Max(0, thresholds.ToList().IndexOf(LowUsageAutoUse.NormalizedThreshold(rules.Threshold))),
                 i => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { Threshold = thresholds[i] } }), "ClaudeAutoUseThresholdRow"));
-            low.AddRow(WaitCombo("Wait if the 5-hour limit refills within", false, rules.FiveHourWaitMinutes,
+            low.AddRow(WaitCombo("Wait for a 5-hour refill", false, rules.FiveHourWaitMinutes,
                 m => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { FiveHourWaitMinutes = m } }), "ClaudeAutoUseFiveHourWaitRow"));
-            low.AddRow(WaitCombo("Wait if the weekly limit refills within", true, rules.WeeklyWaitMinutes,
+            low.AddRow(WaitCombo("Wait for a weekly refill", true, rules.WeeklyWaitMinutes,
                 m => state.Settings.Update(x => x with { ClaudeResets = x.ClaudeResets with { WeeklyWaitMinutes = m } }), "ClaudeAutoUseWeeklyWaitRow"));
             claude.Add(low);
             if (rules.AutoUseWhenLow && ResetCreditsCard.RefillWaitText(rules.RefillWait, s, DateTimeOffset.UtcNow) is { } claudeWait)

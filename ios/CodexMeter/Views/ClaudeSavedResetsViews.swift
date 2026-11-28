@@ -176,12 +176,12 @@ struct RefillWaitRows: View {
     let storeKey: String
 
     var body: some View {
-        Picker("Wait if the 5-hour limit refills within", selection: $fiveHour) {
+        Picker("Wait for a 5-hour refill", selection: $fiveHour) {
             ForEach(LowUsageAutoUse.fiveHourWaitOptions, id: \.self) { minutes in
                 Text(LowUsageAutoUse.waitLabel(minutes)).tag(minutes)
             }
         }
-        Picker("Wait if the weekly limit refills within", selection: $weekly) {
+        Picker("Wait for a weekly refill", selection: $weekly) {
             ForEach(LowUsageAutoUse.weeklyWaitOptions, id: \.self) { minutes in
                 Text(LowUsageAutoUse.waitLabel(minutes)).tag(minutes)
             }

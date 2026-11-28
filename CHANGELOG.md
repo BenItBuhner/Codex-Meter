@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Choose how long "Use when running low" waits for a refill.** The rule used to skip a limit only when it refilled on its own within 15 minutes. Now Settings → Reset credits has "Wait if the 5-hour limit refills within" (Don't wait up to 4 hours) and "Wait if the weekly limit refills within" (Don't wait up to 3 days), set separately for Codex and Claude Code. 15 minutes stays the default. While a reset is held back, a "Waiting for a refill" line says which limit refills on its own and when. A monthly limit uses the weekly wait. Android, iOS, macOS, Windows, Linux ([#214](https://github.com/BenItBuhner/Codex-Meter/issues/214)).
+- **Choose how long "Use when running low" waits for a refill.** The rule used to skip a limit only when it refilled on its own within 15 minutes. Now Settings → Reset credits has "Wait for a 5-hour refill" (Don't wait up to 4 hours) and "Wait for a weekly refill" (Don't wait up to 3 days), set separately for Codex and Claude Code. 15 minutes stays the default. While a reset is held back, a "Waiting for a refill" line says which limit refills on its own and when. A monthly limit uses the weekly wait. Android, iOS, macOS, Windows, Linux ([#214](https://github.com/BenItBuhner/Codex-Meter/issues/214)).
 
 ## 2.9.0-alpha.38 — 2026-11-27
 

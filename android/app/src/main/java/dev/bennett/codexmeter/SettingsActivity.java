@@ -1015,7 +1015,7 @@ public final class SettingsActivity extends AppCompatActivity {
             });
         }
 
-        /** "Wait if the weekly limit refills within": the running-low rule's wait for one limit. */
+        /** "Wait for a weekly refill": the running-low rule's wait for one limit. */
         private ListPreference waitPreference(Context context, UsageProvider provider,
                 boolean weekly) {
             int[] options = weekly ? ResetCreditLowUsageAutoUse.WEEKLY_WAIT_OPTIONS
@@ -1026,8 +1026,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 entries[index] = ResetCreditLowUsageAutoUse.waitLabel(options[index]);
                 values[index] = String.valueOf(options[index]);
             }
-            String title = weekly ? "Wait if the weekly limit refills within"
-                    : "Wait if the 5-hour limit refills within";
+            String title = weekly ? "Wait for a weekly refill"
+                    : "Wait for a 5-hour refill";
             ListPreference wait = new ListPreference(context);
             wait.setKey(resetKey(provider, weekly ? "wait_weekly" : "wait_five_hour"));
             wait.setTitle(title);
