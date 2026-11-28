@@ -519,7 +519,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.apple == 'true'
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 60  # includes waiting for the build job to get a macOS runner (wait-for-artifact.sh)
     permissions:
       contents: read
       actions: read
@@ -569,7 +569,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.apple == 'true'
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 60  # includes waiting for the build job to get a macOS runner (wait-for-artifact.sh)
     permissions:
       contents: read
       actions: read
