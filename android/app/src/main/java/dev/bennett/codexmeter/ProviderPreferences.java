@@ -514,7 +514,7 @@ public final class ProviderPreferences {
     public static void clearReading(Context context, UsageProvider provider) {
         if (provider == UsageProvider.CODEX) {
             AppPreferences.clearReading(context);
-            prefs(context).edit().remove(provider.id + SUFFIX_EMAIL).commit();
+            prefs(context).edit().remove(provider.id + SUFFIX_EMAIL).apply();
             PhoneWearSync.pushUsage(context, null);
             return;
         }

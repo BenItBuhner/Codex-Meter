@@ -112,7 +112,7 @@ public final class AppPreferences {
     public static void clearReading(Context context) {
         prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
                 .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
-                .remove(KEY_REFRESH_FAILURES).commit();
+                .remove(KEY_REFRESH_FAILURES).apply();
     }
 
     public static void clearSnapshot(Context context) {
