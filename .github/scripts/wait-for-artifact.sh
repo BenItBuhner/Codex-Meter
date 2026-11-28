@@ -12,8 +12,14 @@ JOB="${2:?producing job name}"
 LIMIT="${3:-1200}"
 : "${GITHUB_REPOSITORY:?}" "${GITHUB_RUN_ID:?}"
 API="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+# The limit counts only time the producing job has been running: while it still waits for a runner
+# (macOS runners are often all busy) the clock doesn't run, up to QUEUE_LIMIT more seconds.
+QUEUE_LIMIT="${QUEUE_LIMIT:-3600}"
 SECONDS=0
-while (( SECONDS < LIMIT )); do
+running=0
+queued=0
+last=$SECONDS
+while (( running < LIMIT && queued < QUEUE_LIMIT )); do
   found="$(gh api "$API/artifacts?name=$NAME" -q '.total_count' 2>/dev/null)"
   if [[ "${found:-0}" != 0 ]]; then
     echo "$NAME is ready after ${SECONDS}s"
@@ -28,7 +34,19 @@ while (( SECONDS < LIMIT )); do
     echo "::error::$JOB finished (${state#completed }) without uploading $NAME" >&2
     exit 1
   fi
+  now=$SECONDS
+  if [[ "$state" == in_progress* ]]; then
+    running=$((running + now - last))
+  else
+    # queued, waiting or not created yet: the producer hasn't got a runner
+    queued=$((queued + now - last))
+  fi
+  last=$now
   sleep 10
 done
-echo "::error::$NAME did not appear within ${LIMIT}s" >&2
+if (( queued >= QUEUE_LIMIT )); then
+  echo "::error::$JOB waited over ${QUEUE_LIMIT}s for a runner; $NAME never appeared" >&2
+else
+  echo "::error::$NAME did not appear within ${LIMIT}s of $JOB starting" >&2
+fi
 exit 1

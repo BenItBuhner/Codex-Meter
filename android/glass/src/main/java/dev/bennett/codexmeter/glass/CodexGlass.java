@@ -350,13 +350,21 @@ public final class CodexGlass {
         int version = useSource(kit, src);
         State<Boolean> past = R.useState(false);
         State<Boolean> min = R.useState(false);
+        // More's list is showing (More picked, no provider pushed over the list)
         State<Boolean> more = R.useState(false);
+        State<Boolean> morePast = R.useState(false);
+        // the provider More last pushed, so More shows it again after another tab (null: the list)
+        Ref<String> moreTop = R.useRef(null);
         // Edit mode (the bar's Edit): the page's sections as one list, each with a check to show or
         // hide it and a handle to move it, faded in over the page where it stands (Photos' Customize
         // and Reorder). editPast is that list's own scroll, for the bar's fade.
         State<Boolean> editing = R.useState(false);
         State<Boolean> editPast = R.useState(false);
         OnScroll onEditScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> editPast.set(y > 46));
+        OnScroll onMoreScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> {
+            morePast.set(y > PAST_TITLE);
+            min.set(s.minimized);
+        });
         OnScroll onScroll = R.useMemo(R.deps(), () -> (OnScroll) (y, s) -> {
             past.set(y > PAST_TITLE);
             min.set(s.minimized);
@@ -384,7 +392,12 @@ public final class CodexGlass {
         // Up to four providers get a tab each; with more, the first three and More (iOS's rule).
         // The Duo layout's column fits as many as its height allows.
         double rail = rail(t);
-        int fit = rail > 0 ? railTabsFit(t.H, t.T, t.B, buttons(src.menu()) + (sections != null ? 1 : 0)) : 4;
+        int railButtonCount = buttons(src.menu()) + (sections != null ? 1 : 0);
+        int fit = rail > 0 ? railTabsFit(t.H, t.T, t.B, railButtonCount) : 4;
+        if (rail > 0 && tabs.size() > fit && !more.get() && indexOf(tabs, src.selectedTab()) >= fit - 1) {
+            // a provider More pushed: the column also holds Back, so it has room for one tab fewer
+            fit = railTabsFit(t.H, t.T, t.B, railButtonCount + 1);
+        }
         boolean showsMore = tabs.size() > fit;
         int own = showsMore ? fit - 1 : tabs.size();
         List<Tab> kitTabs = new ArrayList<>();
@@ -399,22 +412,36 @@ public final class CodexGlass {
             tabKey.append("|more");
         }
         int index = indexOf(tabs, selected);
-        String value = more.get() || index >= own ? MORE : selected;
+        // More is iOS's More tab (UITabBarController's moreNavigationController): a pushed list, not a
+        // sheet. Its root page lists the providers that have no tab of their own; picking one pushes
+        // that provider's page over the list, with Back to the list. More stays the selected tab the
+        // whole time. A tap on More while a provider is pushed pops back to the list, and More keeps
+        // its place when another tab is picked and More again (both as iOS does).
+        boolean pushed = showsMore && !more.get() && index >= own;
+        boolean moreRoot = showsMore && more.get();
+        boolean onMore = moreRoot || pushed;
+        if (pushed) {
+            moreTop.current = selected;
+        }
+        String value = onMore ? MORE : selected;
+        R.useEffectRun(R.deps(onMore), () -> morePast.set(false));
 
         // The bar's buttons: Edit, then Settings, each its own glass button side by side like iOS's
         // toolbar items. Edit works like Photos' Select: in Edit mode its capsule shrinks into a blue
         // ✓ Done circle (the label blur-replaces into the check, the tint fades in) and Settings
-        // merges away into it; Done runs it backwards. Pull the page down to refresh.
-        List<El> trailing = R.useMemo(R.deps(version, selected, edit, sections != null), () -> {
+        // merges away into it; Done runs it backwards. Pull the page down to refresh. More's list
+        // has no sections, so its bar keeps only Settings.
+        boolean hasEdit = sections != null && !moreRoot;
+        List<El> trailing = R.useMemo(R.deps(version, selected, edit, hasEdit), () -> {
             List<El> out = new ArrayList<>();
-            if (sections != null) {
+            if (hasEdit) {
                 out.add(edit
                         ? GlassButton(P.of("key", "edit", "id", "edit", "icon", "check", "w", 44, "h", 44,
                                 "glass", GlassStyles.tinted(t.accent, 0.92), "onPress", toggleEdit))
                         : GlassButton(P.of("key", "edit", "id", "edit", "label", "Edit", "h", 44, "padX", 14,
                                 "onPress", toggleEdit)));
             }
-            if (!edit) {
+            if (!edit || !hasEdit) {
                 for (GlassSource.MenuEntry entry : src.menu()) {
                     if (entry != null) {
                         out.add(GlassButton(P.of("key", "b:" + entry.label, "id", "b:" + entry.icon,
@@ -439,20 +466,67 @@ public final class CodexGlass {
 
         double[] bg = t.pal.groupedRGB;
         // the bar's fade and title follow whichever list is in front
-        boolean fade = edit ? editPast.get() : past.get();
+        boolean fade = moreRoot ? morePast.get() : edit ? editPast.get() : past.get();
+        String barTitle = moreRoot ? "More" : d.title;
+        List<GlassModel.Tab> rest = showsMore ? tabs.subList(own, tabs.size()) : Collections.<GlassModel.Tab>emptyList();
+        int ownTabs = own;
         OnStr pickTab = id -> {
             if (MORE.equals(id)) {
-                more.set(true);
+                // More shows what it showed last: the provider pushed over its list, or the list
+                String last = moreTop.current;
+                if (last != null && indexOf(tabs, last) >= ownTabs) {
+                    more.set(false);
+                    src.selectTab(last);
+                } else {
+                    more.set(true);
+                }
             } else {
+                more.set(false);
                 src.selectTab(id);
             }
         };
-        // a tap on the tab already showing: More (showing a provider picked from it) opens its list again
-        OnStr reselect = id -> {
-            if (MORE.equals(id)) {
-                more.set(true);
+        // Back from a provider More pushed: the list again (the Stack's slide-out runs first)
+        Runnable popMore = () -> {
+            moreTop.current = null;
+            editing.set(false);
+            more.set(true);
+        };
+        Runnable back = () -> {
+            if (!kit.back()) {
+                popMore.run();
             }
         };
+        // a tap on the tab already showing: More with a provider pushed pops back to its list
+        OnStr reselect = id -> {
+            if (MORE.equals(id) && pushed) {
+                back.run();
+            }
+        };
+        OnStr pickFromMore = id -> {
+            past.set(false);
+            min.set(false);
+            more.set(false);
+            src.selectTab(id);
+        };
+        double pageW = rail > 0 ? t.W - rail : t.W;
+        double tail = rail > 0 ? 110 : 150;
+        El page = GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", readablePad(pageW),
+                "tail", tail, "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
+                "refreshing", src.refreshing()), body.toArray());
+        if (onMore) {
+            // More's list at the bottom of the stack, the provider picked from it pushed over it
+            List<El> stackPages = new ArrayList<>();
+            stackPages.add(Box(P.of("key", "more-list", "fill", true),
+                    GlassScrollView(P.of("key", "more-scroll", "padT", t.T + 64, "padX", readablePad(pageW),
+                                    "tail", tail, "onScroll", onMoreScroll),
+                            largeTitle("More", 18.0, morePast.get()),
+                            moreList(rest, t, pickFromMore))));
+            if (pushed) {
+                stackPages.add(Box(P.of("key", "more:" + selected, "fill", true), page));
+            }
+            page = Stack(P.of("key", "more-stack", "onPop", popMore, "bg", t.pal.grouped), stackPages);
+        }
+        El edits = moreRoot ? null : editLayer(sections, edit, d.title, t, pageW, tail, onEditScroll, editPast.get());
         if (rail > 0) {
             // Duo: the page beside the right-edge column, which holds the bar's buttons and the tabs
             List<TopTab> railTabs = new ArrayList<>();
@@ -460,12 +534,16 @@ public final class CodexGlass {
                 railTabs.add(new TopTab(tab.id, tab.label, tab.icon));
             }
             List<RailButton> railButtons = new ArrayList<>();
-            if (sections != null) {
+            if (pushed) {
+                // a provider More pushed: Back to More's list leads the column, as Settings' Back does
+                railButtons.add(new RailButton("b:back", "back", back, false));
+            }
+            if (hasEdit) {
                 // Edit: the app's pencil, a filled ✓ in Edit mode (the column has room for icons only)
                 railButtons.add(new RailButton("edit", edit ? "check" : "squarePencil", toggleEdit, edit));
             }
             for (GlassSource.MenuEntry entry : src.menu()) {
-                if (entry != null && !edit) {
+                if (entry != null && !(edit && hasEdit)) {
                     // the same buttons, icons and order as the dashboard's bar; Settings is the glass
                     // Settings' Back takes over (LEAD), so opening Settings merges Edit into it the way
                     // the bar merges Edit into Settings, and its symbol swaps to Back
@@ -479,40 +557,29 @@ public final class CodexGlass {
             }
             return Box(P.of("fill", true, "bg", t.pal.grouped),
                     Inset(P.of("key", "duo-page", "right", rail),
-                            GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64,
-                                    "padX", readablePad(t.W - rail), "tail", 110,
-                                    "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
-                                    "refreshing", src.refreshing()), body.toArray()),
-                            editLayer(sections, edit, d.title, t, t.W - rail, 110, onEditScroll, editPast.get()),
+                            page,
+                            edits,
                             EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", fade)),
                             EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", fade)),
                             EdgeFade(P.of("edge", "bottom", "h", t.B + 40, "color", bg)),
-                            GlassNavBar(P.of("key", navKey(t) + ":duo", "title", d.title,
+                            GlassNavBar(P.of("key", navKey(t) + ":duo", "title", barTitle,
                                     "titleVisible", fade))),
                     shared ? null : duoColumn(t, rail, railButtons.size(), railTabs.size() >= 2 ? railTabs.size() : 0,
                             P.of("buttons", railButtons,
                             "tabs", railTabs.size() >= 2 ? railTabs : null,
                             "value", value, "onChange", pickTab, "onReselect", reselect)),
-                    showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
-                            "title", "More", "detents", new double[] {sheetDetent(t, tabs.size() - own, 0, false)}),
-                            moreList(tabs.subList(own, tabs.size()), selected, t, id -> {
-                                src.selectTab(id);
-                                more.set(false);
-                            })) : null,
                     R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", DASHBOARD, "v", version)));
         }
         return Box(P.of("fill", true, "bg", t.pal.grouped),
-                GlassScrollView(P.of("key", "page:" + selected, "padT", t.T + 64, "padX", readablePad(t.W), "tail", 150,
-                        "onScroll", onScroll, "onRefresh", (Runnable) src::refresh,
-                        "refreshing", src.refreshing()), body.toArray()),
-                editLayer(sections, edit, d.title, t, t.W, 150, onEditScroll, editPast.get()),
+                page,
+                edits,
                 EdgeFade(P.of("edge", "top", "h", t.T + 92, "color", bg, "shown", fade)),
                 // Once content scrolls under the floating bars, the bar's own band gets an even
                 // backdrop (a second fade over just the bar) instead of only the soft fade.
                 EdgeFade(P.of("edge", "top", "h", t.T + 56, "color", bg, "shown", fade)),
                 EdgeFade(P.of("edge", "bottom", "h", t.B + 110, "color", bg)),
-                GlassNavBar(P.of("key", navKey(t), "title", d.title, "titleVisible", fade,
-                        "trailing", trailing)),
+                GlassNavBar(P.of("key", navKey(t), "title", barTitle, "titleVisible", fade,
+                        "trailing", trailing, "onBack", pushed ? back : null)),
                 kitTabs.size() >= 2 ? GlassTabBar(P.of(
                         "key", tabKey.toString(),
                         "tabs", kitTabs,
@@ -521,12 +588,6 @@ public final class CodexGlass {
                         "onReselect", reselect,
                         "minimized", min.get(),
                         "onExpand", (Runnable) () -> min.set(false))) : null,
-                showsMore ? GlassSheet(P.of("open", more.get(), "onClose", (Runnable) () -> more.set(false),
-                        "title", "More", "detents", new double[] {sheetDetent(t, tabs.size() - own, 0, false)}),
-                        moreList(tabs.subList(own, tabs.size()), selected, t, id -> {
-                            src.selectTab(id);
-                            more.set(false);
-                        })) : null,
                 R.h(CodexGlass.DialogLayer, P.of("src", src, "screen", DASHBOARD, "v", version)));
     };
 
@@ -644,15 +705,19 @@ public final class CodexGlass {
         return -1;
     }
 
-    private static El moreList(List<GlassModel.Tab> rest, String selected, KTheme t, OnStr pick) {
+    /**
+     * More's list (iOS's More list): a row for each provider without a tab of its own, its mark, name
+     * and a chevron, since a row pushes the provider's page.
+     */
+    private static El moreList(List<GlassModel.Tab> rest, KTheme t, OnStr pick) {
         List<El> rows = new ArrayList<>();
         for (GlassModel.Tab tab : rest) {
-            rows.add(ListRow(P.of("key", tab.id, "label", tab.label, "onPress", (Runnable) () -> pick.on(tab.id),
+            rows.add(ListRow(P.of("key", tab.id, "label", tab.label, "chevron", true,
+                    "onPress", (Runnable) () -> pick.on(tab.id),
                     "leading", Box(P.of("w", 30, "h", 30, "align", "center", "justify", "center"),
-                            Icon(P.of("name", tab.icon, "size", 22, "color", t.pal.label)))),
-                    tab.id.equals(selected) ? Icon(P.of("name", "check", "size", 18, "color", t.accent)) : null));
+                            Icon(P.of("name", tab.icon, "size", 22, "color", t.pal.label))))));
         }
-        return ListSection(P.of("mb", 0), rows);
+        return ListSection(P.of("key", "more-rows"), rows);
     }
 
     /** One dashboard block. */

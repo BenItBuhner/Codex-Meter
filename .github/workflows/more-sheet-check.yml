@@ -1,4 +1,4 @@
-name: More sheet on a phone emulator
+name: More list on a phone emulator
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   more-sheet:
-    name: More opens and its X closes it on a phone emulator
+    name: More pushes a provider and goes back on a phone emulator
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -47,7 +47,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Open More and close it with its X
+      - name: Open More, push a provider, go back four ways
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
