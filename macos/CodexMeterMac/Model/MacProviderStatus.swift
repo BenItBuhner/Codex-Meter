@@ -115,6 +115,20 @@ extension AppModel {
                 snapshot: cursor.phase == .signedOut ? nil : cursor.usage
             )
         }
+        if let added = addedProviders[provider] {
+            // Copilot, Grok, Kimi and the rest: their tab's own model, as on iOS. Before this the
+            // Mac showed them as signed out with no usage in the sidebar and the menu bar.
+            return MacProviderStatus(
+                provider: provider,
+                isSignedIn: added.phase == .live,
+                isDemo: added.phase == .demo,
+                isRefreshing: added.isRefreshing,
+                plan: added.accountPlan,
+                email: added.accountEmail,
+                error: added.visibleError,
+                snapshot: added.phase == .signedOut ? nil : added.usage
+            )
+        }
         return MacProviderStatus(
             provider: provider,
             isSignedIn: isSignedIn(provider),
@@ -146,6 +160,8 @@ extension AppModel {
             await claude.refresh()
         } else if provider == .cursor {
             await cursor.refresh()
+        } else if let added = addedProviders[provider] {
+            await added.refresh()
         }
     }
 
@@ -156,8 +172,8 @@ extension AppModel {
         }
     }
 
-    /// Opening the menu bar panel counts as opening each tab: Claude and Cursor re-check only
-    /// when their data is older than five minutes, as on iOS.
+    /// Opening the menu bar panel counts as opening each tab: every provider but Codex re-checks
+    /// only when its data is older than five minutes, as on iOS.
     func macPanelOpened() async {
         await startIfNeeded()
         for provider in enabledProviders {
@@ -165,6 +181,8 @@ extension AppModel {
                 await claude.tabOpened()
             } else if provider == .cursor {
                 await cursor.tabOpened()
+            } else if let added = addedProviders[provider] {
+                await added.tabOpened()
             }
         }
     }
