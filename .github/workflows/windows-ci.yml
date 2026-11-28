@@ -1,5 +1,6 @@
 name: Windows CI
 
+# Touching this file on a pull request runs the full non-release Windows build. Publishing stays on tags.
 on:
   pull_request:
     branches: [main, alpha]

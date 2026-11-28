@@ -1,5 +1,6 @@
 name: Linux CI
 
+# Touching this file on a pull request runs the full non-release Linux build. Publishing stays on tags.
 on:
   pull_request:
     branches: [main, alpha]
