@@ -29,8 +29,6 @@ import org.json.JSONObject;
  */
 public class UpgradeProbeActivity extends Activity {
     private static final String TAG = "UpgradeProbe";
-    /** Fixed clock for the seed, so expected values are stable: 2026-08-14 12:00:00 UTC. */
-    private static final long BASE_SECONDS = 1_786_708_800L;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -69,6 +67,9 @@ public class UpgradeProbeActivity extends Activity {
 
     private static void seed(Context c) throws Exception {
         long now = System.currentTimeMillis();
+        // The six refreshes end just now, so the windows are current on the screenshots. The
+        // check compares the old build's reading with the new one's, not fixed values.
+        long BASE_SECONDS = now / 1000L - 5 * 1800L;
         SecureTokenStore.save(c, new AuthTokens("upgrade-access-token", "upgrade-refresh-token",
                 "", now + 30L * 86_400_000L, "acct-upgrade-1234", "upgrader@example.com"));
         AppPreferences.completeOnboarding(c);

@@ -68,7 +68,7 @@ t adb shell dumpsys package $PKG | grep -E 'versionName|versionCode|lastUpdateTi
   | tee "$OUT/package.txt"
 # Open it from the launcher, as a user does after updating.
 t adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
-shot 03-upgraded-first-open 5
+shot 03-upgraded-first-open 10
 t adb shell input keyevent KEYCODE_BACK
 shot 04-upgraded-after-back 3
 t adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
@@ -85,6 +85,11 @@ collect
 if grep -E "FATAL EXCEPTION|ANR in $PKG|UpgradeProbe.*failed" "$OUT/logcat.txt" | grep -q .; then
   grep -E -A20 "FATAL EXCEPTION|ANR in $PKG|UpgradeProbe.*failed" "$OUT/logcat.txt" | head -80
   echo "::error::the app crashed, stopped responding or the probe failed during the upgrade check (see logcat.txt)"
+  exit 1
+fi
+# Someone who used 2.8.0 sees the What's new page once on the first open after updating.
+if ! grep -q "cmp=$PKG/.WhatsNewActivity" "$OUT/logcat.txt"; then
+  echo "::error::the What's new page did not open on the first launch after the upgrade"
   exit 1
 fi
 python3 .github/upgrade-check/compare.py "$OUT/before.json" "$OUT/after.json" \
