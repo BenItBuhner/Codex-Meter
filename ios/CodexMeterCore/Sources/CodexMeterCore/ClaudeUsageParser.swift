@@ -263,12 +263,13 @@ public enum ClaudeUsageParser {
 
     /// Parses ISO-8601 timestamps such as `2026-10-19T18:59:59.943648+00:00` or
     /// `2026-10-23T03:00:00Z`. Fractional seconds are dropped (truncated), like Java's
-    /// `OffsetDateTime.toEpochSecond()`. Unparseable values become `nil`.
+    /// `OffsetDateTime.toEpochSecond()`. A time with no zone is UTC with its time of day, and a
+    /// number is epoch seconds or milliseconds. Unparseable values become `nil`.
     public static func parseResetDate(_ value: Any?) -> Date? {
         if let number = value as? NSNumber,
            CFGetTypeID(number) != CFBooleanGetTypeID() {
-            let seconds = number.doubleValue
-            return seconds.isFinite && seconds > 0 ? Date(timeIntervalSince1970: seconds) : nil
+            let seconds = ProviderUsageParsers.epochSeconds(number.doubleValue)
+            return seconds > 0 ? Date(timeIntervalSince1970: TimeInterval(seconds)) : nil
         }
         guard let raw = value as? String else {
             return nil
@@ -287,6 +288,9 @@ public enum ClaudeUsageParser {
         }
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
+        if text.range(of: #"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}$"#, options: .regularExpression) != nil {
+            text += "Z"
+        }
         guard let date = formatter.date(from: text),
               date.timeIntervalSince1970 > 0 else {
             return nil

@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using CodexMeter.Core.Auth;
 using CodexMeter.Core.Models;
 using CodexMeter.Core.Parsing;
@@ -101,9 +102,26 @@ public class ClaudeUsageParserTests
     {
         Assert.Null(ClaudeUsageParser.ParseIsoDate("not a date"));
         Assert.Null(ClaudeUsageParser.ParseIsoDate(null));
-        Assert.Null(ClaudeUsageParser.ParseIsoDate("2026-10-19T18:59:59"));
+        Assert.Null(ClaudeUsageParser.ParseIsoDate("2026-10-19"));
         Assert.Equal(Fixtures.Utc("2026-10-19T18:59:59Z"), ClaudeUsageParser.ParseIsoDate("2026-10-19T18:59:59.9+00:00"));
         Assert.Equal(Fixtures.Utc("2026-10-19T18:59:59Z"), ClaudeUsageParser.ParseIsoDate("2026-10-19T20:59:59+02:00"));
+    }
+
+    [Fact]
+    public void ResetTimesWithNoZoneOrAsNumbersKeepTheirTime()
+    {
+        var expected = Fixtures.Utc("2026-12-01T15:30:00Z");
+        // No zone means UTC with its time of day, not dropped and not the machine's local time.
+        Assert.Equal(expected, ClaudeUsageParser.ParseIsoDate("2026-12-01T15:30:00"));
+        Assert.Equal(expected, ClaudeUsageParser.ParseIsoDate("2026-12-01T15:30:00.250"));
+        // Numbers are epoch seconds or milliseconds.
+        Assert.Equal(expected, ClaudeUsageParser.ParseResetDate(JsonValue.Create(1796139000L)));
+        Assert.Equal(expected, ClaudeUsageParser.ParseResetDate(JsonValue.Create(1796139000000L)));
+        var s = ClaudeUsageParser.Parse("""
+            {"five_hour":{"utilization":30,"resets_at":1796139000000},"seven_day":{"utilization":5,"resets_at":"2026-12-01T15:30:00"}}
+            """, "Pro", At);
+        Assert.Equal(expected, s.FiveHour!.ResetAt);
+        Assert.Equal(expected, s.Weekly!.ResetAt);
     }
 
     [Fact]

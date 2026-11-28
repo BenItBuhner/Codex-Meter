@@ -207,6 +207,11 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(snapshot.monthly?.usedPercent, 38)
         XCTAssertEqual(snapshot.additionalLimits.map(\.name), ["Grok Code"])
         XCTAssertEqual(snapshot.usageCredits?.balance, "$5.00")
+        // Grok's percentages are points: 1 is 1%, not a fraction meaning 100%.
+        let light = ProviderUsageParsers.grok(#"{"config":{"usagePercent":1,"productUsage":[{"product":"grok_code","usagePercent":0.4}]}}"#, now: now)
+        XCTAssertEqual(light.monthly?.usedPercent, 1)
+        XCTAssertFalse(light.limitReached)
+        XCTAssertEqual(light.additionalLimits.first?.primary?.usedPercent, 0)
     }
 
     func testAntigravity() throws {
@@ -261,6 +266,11 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(resetSeconds(go.fiveHour), nowSeconds + 600)
         XCTAssertEqual(go.weekly?.usedPercent, 12)
         XCTAssertEqual(go.monthly?.usedPercent, 4)
+        // OpenCode Go reads 1 as 1%, not a fraction.
+        let lightGo = ProviderUsageParsers.opencodeGo(#"{"usage":{"rolling":{"utilization":1,"resetInSec":600},"weekly":{"usagePercent":0.5}}}"#, now: now)
+        XCTAssertEqual(lightGo.fiveHour?.usedPercent, 1)
+        XCTAssertEqual(lightGo.weekly?.usedPercent, 1)
+        XCTAssertFalse(lightGo.limitReached)
     }
 
     func testOpenCodeFreeResetsAtMidnightUTC() {
@@ -386,6 +396,14 @@ final class ProviderParsersTests: XCTestCase {
         XCTAssertEqual(legacy.weekly?.usedPercent, 2)
         let counter = ProviderUsageParsers.synthetic(#"{"subscription":{"limit":135,"requests":27,"renewsAt":"2026-09-21T15:00:00Z"}}"#, now: now)
         XCTAssertEqual(counter.fiveHour?.usedPercent, 20)
+        // Older fractions over 1 are over the limit; current percentages are points, so 1 is 1%.
+        let over = ProviderUsageParsers.synthetic(#"{"rollingFiveHourLimit":{"percentUsed":1.2},"weeklyTokenLimit":{"percentRemaining":1}}"#, now: now)
+        XCTAssertEqual(over.fiveHour?.usedPercent, 100)
+        XCTAssertTrue(over.limitReached)
+        XCTAssertEqual(over.weekly?.usedPercent, 0)
+        let lightSearch = ProviderUsageParsers.synthetic(#"{"planWeeklyLimit":{"percentRemaining":99},"search":{"hourly":{"percentUsed":1}}}"#, now: now)
+        XCTAssertEqual(lightSearch.weekly?.usedPercent, 1)
+        XCTAssertEqual(lightSearch.additionalLimits.first?.primary?.usedPercent, 1)
         XCTAssertFalse(ProviderUsageParsers.synthetic("{}", now: now).hasDisplayableData)
     }
 

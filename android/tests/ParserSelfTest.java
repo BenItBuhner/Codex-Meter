@@ -3121,6 +3121,22 @@ public final class ParserSelfTest {
                 "Claude null windows and disabled extra usage are skipped");
         check(ClaudeUsageParser.parseResetSeconds("not a date") == 0L,
                 "bad Claude reset timestamps are ignored");
+        long zoned = ClaudeUsageParser.parseResetSeconds("2026-12-01T15:30:00Z");
+        check(zoned == 1796139000L, "Claude reset with a zone");
+        check(ClaudeUsageParser.parseResetSeconds("2026-12-01T15:30:00") == zoned
+                        && ClaudeUsageParser.parseResetSeconds("2026-12-01T15:30:00.250") == zoned,
+                "a Claude reset with no zone is UTC and keeps its time of day");
+        check(ClaudeUsageParser.parseResetSeconds(1796139000L) == zoned
+                        && ClaudeUsageParser.parseResetSeconds(1796139000000L) == zoned
+                        && ClaudeUsageParser.parseResetSeconds(1796139000.0) == zoned,
+                "a numeric Claude reset is epoch seconds or milliseconds");
+        UsageSnapshot numericReset = ClaudeUsageParser.parse(
+                "{\"five_hour\":{\"utilization\":30,\"resets_at\":1796139000000},"
+                        + "\"seven_day\":{\"utilization\":5,\"resets_at\":\"2026-12-01T15:30:00\"}}",
+                "", 1L);
+        check(numericReset.fiveHour.resetAtEpochSeconds == zoned
+                        && numericReset.weekly.resetAtEpochSeconds == zoned,
+                "Claude windows keep numeric and zoneless reset times");
 
         // Anthropic renamed Max 5x to Max and Max 20x to Ultra (October 2026). The tier string
         // did not change, and the profile now also carries the current name.

@@ -1,6 +1,8 @@
 package dev.bennett.codexmeter;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -118,7 +120,7 @@ public final class ClaudeUsageParser {
         double percent = row.optDouble("percent", Double.NaN);
         if (Double.isNaN(percent) || Double.isInfinite(percent)) return null;
         return new UsageWindow((int) Math.round(percent), windowSeconds, 0L,
-                parseResetSeconds(row.optString("resets_at", "")));
+                parseResetSeconds(row.opt("resets_at")));
     }
 
     static long windowSeconds(String kind, String group) {
@@ -167,7 +169,7 @@ public final class ClaudeUsageParser {
         double utilization = object.optDouble("utilization", Double.NaN);
         if (Double.isNaN(utilization) || Double.isInfinite(utilization)) return null;
         return new UsageWindow((int) Math.round(utilization), windowSeconds, 0L,
-                parseResetSeconds(object.optString("resets_at", "")));
+                parseResetSeconds(object.opt("resets_at")));
     }
 
     /** Paid overage ("extra usage") behaves like a monthly spending cap when it is enabled. */
@@ -177,15 +179,29 @@ public final class ClaudeUsageParser {
         double utilization = object.optDouble("utilization", Double.NaN);
         if (Double.isNaN(utilization) || Double.isInfinite(utilization)) return null;
         UsageWindow window = new UsageWindow((int) Math.round(utilization), MONTH_SECONDS, 0L,
-                parseResetSeconds(object.optString("resets_at", "")));
+                parseResetSeconds(object.opt("resets_at")));
         return new UsageLimit(LIMIT_ID_PREFIX + "extra_usage", "Extra usage", "", true,
                 window.usedPercent >= 100, window, null);
     }
 
-    static long parseResetSeconds(String value) {
-        if (value == null || value.trim().isEmpty() || "null".equals(value)) return 0L;
+    /**
+     * Epoch seconds from {@code resets_at}: an ISO-8601 time with a zone, one without a zone
+     * (read as UTC with its time of day), or epoch seconds or milliseconds as a number.
+     * Anything else is 0.
+     */
+    static long parseResetSeconds(Object value) {
+        if (value == null || value == JSONObject.NULL) return 0L;
+        if (value instanceof Number) return ProviderUsageParsers.epochSeconds(value);
+        String text = String.valueOf(value).trim();
+        if (text.isEmpty() || "null".equals(text)) return 0L;
+        if (text.matches("\\d+(\\.\\d+)?")) return ProviderUsageParsers.epochSeconds(text);
         try {
-            return Math.max(0L, OffsetDateTime.parse(value.trim()).toEpochSecond());
+            return Math.max(0L, OffsetDateTime.parse(text).toEpochSecond());
+        } catch (DateTimeParseException ignored) {
+            // Try a time with no zone.
+        }
+        try {
+            return Math.max(0L, LocalDateTime.parse(text).toEpochSecond(ZoneOffset.UTC));
         } catch (DateTimeParseException ignored) {
             return 0L;
         }

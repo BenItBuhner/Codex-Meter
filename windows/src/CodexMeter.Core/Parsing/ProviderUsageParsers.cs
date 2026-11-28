@@ -450,8 +450,8 @@ public static class ProviderUsageParsers
         var end = period is not null ? First(period, "end", "endTime") : First(config, "billingPeriodEnd");
         var seconds = Span(start, end, Month);
         var reset = EpochSeconds(end);
+        // Both fields are percentage points (CodexBar's GrokCreditsProxyFetcher), so 0.5 is 0.5%.
         var percent = Number(config, "creditUsagePercent", "usagePercent");
-        if (!double.IsNaN(percent) && percent <= 1 && percent > 0 && !ProviderJson.Has(config, "creditUsagePercent")) percent *= 100;
         if (double.IsNaN(percent))
         {
             // Pay-as-you-go accounts report spend against their on-demand cap instead.
@@ -742,8 +742,8 @@ public static class ProviderUsageParsers
         {
             var entry = windows[index].Select(k => ProviderJson.Obj(usage, k)).FirstOrDefault(o => o is not null);
             if (entry is null) continue;
+            // The API's percentages are 0–100 (CodexBar reads this route as percent), so 1 is 1%.
             var percent = Number(entry, PercentKeys);
-            if (!double.IsNaN(percent) && percent <= 1 && ProviderJson.Has(entry, "utilization")) percent *= 100;
             output.Add(DurationName(lengths[index]) + " limit", MakeWindow(percent, lengths[index], ResetFrom(entry, now), now));
         }
         return output.Build();
@@ -1139,7 +1139,9 @@ public static class ProviderUsageParsers
     /// is in percentage points and regenerates continuously, so <c>nextRegenAt</c> is when the
     /// next slice comes back. Older plans report <c>rollingFiveHourLimit</c> and
     /// <c>weeklyTokenLimit</c> as fractions, and the retired <c>subscription</c> request counter is
-    /// read only when nothing else is there. The search tool has its own hourly allowance.
+    /// read only when nothing else is there. The search tool has its own hourly allowance. Which
+    /// unit a percentage is in follows from the object it sits in, never from its size: a
+    /// fraction of 1.2 is over the limit, and 0.5 points is half a percent.
     /// </summary>
     public static UsageSnapshot Synthetic(string body, DateTimeOffset now)
     {
@@ -1161,9 +1163,9 @@ public static class ProviderUsageParsers
                 output.Weekly = MakeWindow(QuotaUsed(weekly, false), Week, QuotaReset(weekly, now), now);
         }
         if (Path(source, "search", "hourly") is { } search)
-            output.Extra("Search (hourly)", MakeWindow(QuotaUsed(search, false), Hour, QuotaReset(search, now), now));
+            output.Extra("Search (hourly)", MakeWindow(QuotaUsed(search, true), Hour, QuotaReset(search, now), now));
         if (output.ShortWindow is null && output.Weekly is null && ProviderJson.Obj(source, "subscription") is { } subscription)
-            output.ShortWindow = MakeWindow(QuotaUsed(subscription, false), 5 * Hour, QuotaReset(subscription, now), now);
+            output.ShortWindow = MakeWindow(QuotaUsed(subscription, true), 5 * Hour, QuotaReset(subscription, now), now);
         return output.Build();
     }
 
@@ -1181,14 +1183,14 @@ public static class ProviderUsageParsers
 
     /// <summary>
     /// Percent used of one quota object. Percent fields win over counts; <paramref name="points"/>
-    /// says the percentages are already 0–100 (otherwise values up to 1 are read as fractions).
+    /// says the percentages are 0–100, otherwise they are fractions of 1 (over 1 when over the limit).
     /// </summary>
     internal static double QuotaUsed(JsonObject quota, bool points)
     {
         var used = Number(quota, "percentUsed", "usedPercent", "usagePercent", "used_percent");
         var left = Number(quota, QuotaLeftPercentKeys);
-        if (double.IsNaN(used) && !double.IsNaN(left)) used = 100 - (!points && left <= 1 ? left * 100 : left);
-        else if (!double.IsNaN(used) && !points && used <= 1) used *= 100;
+        if (double.IsNaN(used) && !double.IsNaN(left)) used = 100 - (points ? left : left * 100);
+        else if (!double.IsNaN(used) && !points) used *= 100;
         if (!double.IsNaN(used)) return used;
         var limit = Number(quota, QuotaLimitKeys);
         var count = Number(quota, QuotaUsedKeys);

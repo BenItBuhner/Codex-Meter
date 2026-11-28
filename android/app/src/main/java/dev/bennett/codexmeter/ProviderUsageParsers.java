@@ -546,11 +546,8 @@ public final class ProviderUsageParsers {
                 : first(config, "billingPeriodEnd");
         long seconds = span(start, end, MONTH);
         long reset = epochSeconds(end);
+        // Both fields are percentage points (CodexBar's GrokCreditsProxyFetcher), so 0.5 is 0.5%.
         double percent = number(config, "creditUsagePercent", "usagePercent");
-        if (!Double.isNaN(percent) && percent <= 1.0 && percent > 0
-                && !config.has("creditUsagePercent")) {
-            percent *= 100.0;
-        }
         if (Double.isNaN(percent)) {
             // Pay-as-you-go accounts report spend against their on-demand cap instead.
             double cap = number(config, "onDemandCap");
@@ -903,10 +900,8 @@ public final class ProviderUsageParsers {
                 if (entry != null) break;
             }
             if (entry == null) continue;
+            // The API's percentages are 0–100 (CodexBar reads this route as percent), so 1 is 1%.
             double percent = number(entry, PERCENT_KEYS);
-            if (!Double.isNaN(percent) && percent <= 1.0 && entry.has("utilization")) {
-                percent *= 100.0;
-            }
             long reset = resetFrom(entry, now);
             out.add(durationName(lengths[i]) + " limit", window(percent, lengths[i], reset, now));
         }
@@ -1359,7 +1354,9 @@ public final class ProviderUsageParsers {
      * {@code nextRegenAt} is when the next slice comes back. Older plans report
      * {@code rollingFiveHourLimit} and {@code weeklyTokenLimit} as fractions, and the retired
      * {@code subscription} request counter is read only when nothing else is there. The search
-     * tool has its own hourly allowance.
+     * tool has its own hourly allowance. Which unit a percentage is in follows from the object
+     * it sits in, never from its size: a fraction of 1.2 is over the limit, and 0.5 points is
+     * half a percent.
      */
     public static UsageSnapshot synthetic(String body, long now) {
         JSONObject root = object(body);
@@ -1393,12 +1390,12 @@ public final class ProviderUsageParsers {
         }
         JSONObject search = path(source, "search", "hourly");
         if (search != null) {
-            out.extra("Search (hourly)", window(quotaUsed(search, false), HOUR,
+            out.extra("Search (hourly)", window(quotaUsed(search, true), HOUR,
                     quotaReset(search, now), now));
         }
         JSONObject subscription = source.optJSONObject("subscription");
         if (out.shortWindow == null && out.weekly == null && subscription != null) {
-            out.shortWindow = window(quotaUsed(subscription, false), 5 * HOUR,
+            out.shortWindow = window(quotaUsed(subscription, true), 5 * HOUR,
                     quotaReset(subscription, now), now);
         }
         return out.build();
@@ -1421,14 +1418,14 @@ public final class ProviderUsageParsers {
 
     /**
      * Percent used of one quota object. Percent fields win over counts; {@code points} says
-     * the percentages are already 0–100 (otherwise values up to 1 are read as fractions).
+     * the percentages are 0–100, otherwise they are fractions of 1 (over 1 when over the limit).
      */
     static double quotaUsed(JSONObject quota, boolean points) {
         double used = number(quota, "percentUsed", "usedPercent", "usagePercent", "used_percent");
         double left = number(quota, QUOTA_LEFT_PERCENT_KEYS);
         if (Double.isNaN(used) && !Double.isNaN(left)) {
-            used = 100.0 - (!points && left <= 1.0 ? left * 100.0 : left);
-        } else if (!Double.isNaN(used) && !points && used <= 1.0) {
+            used = 100.0 - (points ? left : left * 100.0);
+        } else if (!Double.isNaN(used) && !points) {
             used *= 100.0;
         }
         if (!Double.isNaN(used)) return used;

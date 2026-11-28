@@ -503,10 +503,8 @@ public enum ProviderUsageParsers {
         let end = period != nil ? first(period, "end", "endTime") : first(config, "billingPeriodEnd")
         let seconds = span(start, end, Self.month)
         let reset = epochSeconds(end)
+        // Both fields are percentage points (CodexBar's GrokCreditsProxyFetcher), so 0.5 is 0.5%.
         var percent = number(config, "creditUsagePercent", "usagePercent")
-        if !percent.isNaN, percent <= 1, percent > 0, !config.has("creditUsagePercent") {
-            percent *= 100
-        }
         if percent.isNaN {
             // Pay-as-you-go accounts report spend against their on-demand cap instead.
             let cap = number(config, "onDemandCap")
@@ -796,8 +794,8 @@ public enum ProviderUsageParsers {
         let lengths: [Int64] = [5 * Self.hour, Self.week, Self.month]
         for (index, keys) in windows.enumerated() {
             guard let entry = keys.lazy.compactMap({ usage.object($0) }).first else { continue }
-            var percent = number(entry, percentKeys)
-            if !percent.isNaN, percent <= 1, entry.has("utilization") { percent *= 100 }
+            // The API's percentages are 0–100 (CodexBar reads this route as percent), so 1 is 1%.
+            let percent = number(entry, percentKeys)
             let reset = resetFrom(entry, now)
             out.add(durationName(lengths[index]) + " limit", makeWindow(percent, lengths[index], reset, now))
         }
@@ -1205,7 +1203,9 @@ public enum ProviderUsageParsers {
     /// percentage points and regenerates continuously, so `nextRegenAt` is when the next slice
     /// comes back. Older plans report `rollingFiveHourLimit` and `weeklyTokenLimit` as
     /// fractions, and the retired `subscription` request counter is read only when nothing
-    /// else is there. The search tool has its own hourly allowance.
+    /// else is there. The search tool has its own hourly allowance. Which unit a percentage is
+    /// in follows from the object it sits in, never from its size: a fraction of 1.2 is over the
+    /// limit, and 0.5 points is half a percent.
     public static func synthetic(_ body: String, now: Date) -> UsageSnapshot {
         var root = object(body)
         if root.isEmpty, case let .array(values)? = ProviderJSON.parse(body.trimmingCharacters(in: .whitespacesAndNewlines)) {
@@ -1228,10 +1228,10 @@ public enum ProviderUsageParsers {
             }
         }
         if let search = path(source, "search", "hourly") {
-            out.extra("Search (hourly)", makeWindow(quotaUsed(search, points: false), Self.hour, quotaReset(search, now), now))
+            out.extra("Search (hourly)", makeWindow(quotaUsed(search, points: true), Self.hour, quotaReset(search, now), now))
         }
         if out.shortWindow == nil, out.weekly == nil, let subscription = source.object("subscription") {
-            out.shortWindow = makeWindow(quotaUsed(subscription, points: false), 5 * Self.hour,
+            out.shortWindow = makeWindow(quotaUsed(subscription, points: true), 5 * Self.hour,
                                          quotaReset(subscription, now), now)
         }
         return out.build()
@@ -1249,13 +1249,13 @@ public enum ProviderUsageParsers {
     }
 
     /// Percent used of one quota object. Percent fields win over counts; `points` says the
-    /// percentages are already 0–100 (otherwise values up to 1 are read as fractions).
+    /// percentages are 0–100, otherwise they are fractions of 1 (over 1 when over the limit).
     static func quotaUsed(_ quota: Object, points: Bool) -> Double {
         var used = number(quota, "percentUsed", "usedPercent", "usagePercent", "used_percent")
         let left = number(quota, quotaLeftPercentKeys)
         if used.isNaN, !left.isNaN {
-            used = 100 - (!points && left <= 1 ? left * 100 : left)
-        } else if !used.isNaN, !points, used <= 1 {
+            used = 100 - (points ? left : left * 100)
+        } else if !used.isNaN, !points {
             used *= 100
         }
         if !used.isNaN { return used }

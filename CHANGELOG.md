@@ -16,6 +16,8 @@
 - **Signing in with a different account starts clean.** Signing in again with another account on Android kept the old account's plan, email and history, and could hold back the new account's first reading. Android.
 - **Over-limit Kimi and Factory usage reads as reached.** A usage ratio above 1 (over the limit) showed as about 1%. All platforms.
 - **Reset times without a time zone keep their time.** A reset like 15:30 with no zone was read as midnight UTC, so the countdown could vanish (Chutes). It is now read as 15:30 UTC. All platforms.
+- **Small Synthetic, OpenCode Go and Grok usage stays small.** A real 1% (or 0.5%) was taken for a fraction and shown as 100% (or 50%), with a false "limit reached". Each field's unit now comes from the provider's API, not from the size of the number, and an older Synthetic fraction above 1 reads as over the limit. All platforms.
+- **Claude reset times keep their time.** A Claude reset sent without a time zone was dropped, and one sent as a number in milliseconds was read as a date thousands of years away. Both now show the right countdown (Cursor reads its times the same way). All platforms.
 - **Kiro with several credit entries agrees everywhere.** Android used the last credit entry for the monthly meter, the other platforms the first. Android.
 - **A widget's Refresh button refreshes too.** It had the same five-minute skip, so a tap soon after a refresh did nothing. It now fetches every provider the widget shows, however fresh their numbers are. Android.
 

@@ -288,6 +288,12 @@ public final class ProviderParsersSelfTest {
         check(snapshot.additionalLimits.size() == 1
                 && "Grok Code".equals(snapshot.additionalLimits.get(0).name), "Grok products");
         check("$5.00".equals(snapshot.usageCredits.balance), "Grok prepaid balance");
+        // Grok's percentages are points: 1 is 1%, not a fraction meaning 100%.
+        UsageSnapshot light = ProviderUsageParsers.grok("{\"config\":{\"usagePercent\":1,"
+                + "\"productUsage\":[{\"product\":\"grok_code\",\"usagePercent\":0.4}]}}", NOW);
+        check(light.monthly.usedPercent == 1 && !light.limitReached
+                && light.additionalLimits.get(0).primary.usedPercent == 0,
+                "a small Grok percentage stays small");
     }
 
     private static void testAntigravity() {
@@ -439,6 +445,10 @@ public final class ProviderParsersSelfTest {
                 && snapshot.fiveHour.resetAtEpochSeconds == NOW_S + 600
                 && snapshot.weekly.usedPercent == 12 && snapshot.monthly.usedPercent == 4,
                 "OpenCode Go windows");
+        UsageSnapshot light = ProviderUsageParsers.opencodeGo("{\"usage\":{\"rolling\":{"
+                + "\"utilization\":1,\"resetInSec\":600},\"weekly\":{\"usagePercent\":0.5}}}", NOW);
+        check(light.fiveHour.usedPercent == 1 && light.weekly.usedPercent == 1
+                && !light.limitReached, "OpenCode Go reads 1 as 1%, not a fraction");
     }
 
     private static void testOpenCodeFree() {
@@ -591,6 +601,15 @@ public final class ProviderParsersSelfTest {
         UsageSnapshot counter = ProviderUsageParsers.synthetic("{\"subscription\":{\"limit\":"
                 + "135,\"requests\":27,\"renewsAt\":\"2026-09-21T15:00:00Z\"}}", NOW);
         check(counter.fiveHour.usedPercent == 20, "the old request counter as a fallback");
+        UsageSnapshot over = ProviderUsageParsers.synthetic("{\"rollingFiveHourLimit\":{"
+                + "\"percentUsed\":1.2},\"weeklyTokenLimit\":{\"percentRemaining\":1}}", NOW);
+        check(over.fiveHour.usedPercent == 100 && over.limitReached
+                && over.weekly.usedPercent == 0, "older fractions over 1 are over the limit");
+        UsageSnapshot lightSearch = ProviderUsageParsers.synthetic("{\"planWeeklyLimit\":{"
+                + "\"percentRemaining\":99},\"search\":{\"hourly\":{\"percentUsed\":1}}}", NOW);
+        check(lightSearch.weekly.usedPercent == 1
+                && lightSearch.additionalLimits.get(0).primary.usedPercent == 1,
+                "current Synthetic percentages are points, so 1 is 1%");
         check(!ProviderUsageParsers.synthetic("{}", NOW).hasDisplayableData(), "empty reply");
     }
 
