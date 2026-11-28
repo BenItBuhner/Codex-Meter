@@ -137,6 +137,11 @@ public enum ProviderUsageParsers {
         if let date = formatter.date(from: trimmed) {
             return Int64(date.timeIntervalSince1970)
         }
+        // A time with no zone (Chutes' naive timestamps) is UTC with its time of day.
+        if trimmed.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$"#, options: .regularExpression) != nil,
+           let date = formatter.date(from: trimmed + "Z") {
+            return Int64(date.timeIntervalSince1970)
+        }
         let datePart = String(text.prefix(10))
         let day = ISO8601DateFormatter()
         day.formatOptions = [.withFullDate]
@@ -241,8 +246,10 @@ public enum ProviderUsageParsers {
         return from > 0 && to > from ? to - from : fallback
     }
 
+    /// A field named a ratio (`used_ratio`, `usedRatio`) is always a fraction of the limit,
+    /// so 1.2 is 120% (over the limit), never 1.2%.
     static func ratioPercent(_ ratio: Double) -> Double {
-        ratio <= 1 ? ratio * 100 : ratio
+        ratio * 100
     }
 
     // MARK: GitHub Copilot

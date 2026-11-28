@@ -5,6 +5,18 @@
 ### Changed
 
 - **More is a list you go into, like on iPhone.** With more providers than the tab bar holds, More no longer opens a sheet. It shows a page listing the other providers; tap one and its page slides in with Back to More. Back, Android's back gesture, an edge swipe or tapping More again returns to the list, and More remembers which provider it showed when you switch tabs and come back. The Duo layout's column gets a Back button for it too. iPhone already used Apple's own More list and now has tests for it. Liquid Glass, Android.
+- **Usage history highlights are a pull-down menu.** The highlights button opens a pull-down menu of switches instead of a sheet, the way Apple's apps do it. Liquid Glass, Android and iPhone.
+
+### Fixed
+
+- **The live monitor's Refresh refreshes.** Tapping Refresh on the live monitor or Now Bar fetched only Codex, and skipped Claude, Cursor and the other providers if their numbers were under five minutes old. It now fetches the provider the monitor shows and says "Refreshing…" until it's done. Android.
+- **Idle Claude plans show their 5-hour limit.** With no Claude session running, Pro and Max showed "No 5-hour limit on this plan" on iPhone, Mac, Windows and Linux. They now show the limit at 0% used, as Android did. iOS, macOS, Windows, Linux.
+- **Codex Go-style plans show on Android.** A plan whose only window is outside the usual 5-hour, weekly or monthly lengths (like a 2-day or 60-day window) showed nothing on Android. It now shows as the weekly or monthly meter, as on the other platforms. Android.
+- **Signing in with a different account starts clean.** Signing in again with another account on Android kept the old account's plan, email and history, and could hold back the new account's first reading. Android.
+- **Over-limit Kimi and Factory usage reads as reached.** A usage ratio above 1 (over the limit) showed as about 1%. All platforms.
+- **Reset times without a time zone keep their time.** A reset like 15:30 with no zone was read as midnight UTC, so the countdown could vanish (Chutes). It is now read as 15:30 UTC. All platforms.
+- **Kiro with several credit entries agrees everywhere.** Android used the last credit entry for the monthly meter, the other platforms the first. Android.
+- **A widget's Refresh button refreshes too.** It had the same five-minute skip, so a tap soon after a refresh did nothing. It now fetches every provider the widget shows, however fresh their numbers are. Android.
 
 ## 2.9.0-alpha.38 — 2026-11-27
 

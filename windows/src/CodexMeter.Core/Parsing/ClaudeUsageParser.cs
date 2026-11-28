@@ -27,6 +27,9 @@ public static partial class ClaudeUsageParser
         UsageWindow? fiveHour = null, weekly = null;
         var additional = new List<UsageLimit>();
         var seen = new HashSet<string>();
+        // Claude sends the session row (or five_hour) with no number while no session is running;
+        // that is a 5-hour limit with nothing used, not a plan without one.
+        var sessionListed = Json.Obj(Json.Get(root, "five_hour")) is not null;
 
         foreach (var item in Json.Arr(Json.Get(root, "limits")) ?? [])
         {
@@ -36,6 +39,7 @@ public static partial class ClaudeUsageParser
             var scopeObject = Json.Obj(Json.Get(row, "scope"));
             if (IsAllModels(scopeObject)) continue;
             var scope = ScopeName(scopeObject);
+            if (scope.Length == 0 && kind == "session") sessionListed = true;
             if (Meter(row, WindowSeconds(kind, group)) is not { } window) continue;
             if (scope.Length == 0 && kind == "session" && fiveHour is null) fiveHour = window;
             else if (scope.Length == 0 && kind == "weekly_all" && weekly is null) weekly = window;
@@ -52,6 +56,7 @@ public static partial class ClaudeUsageParser
 
         fiveHour ??= ParseWindow(Json.Get(root, "five_hour"), FiveHourSeconds);
         weekly ??= ParseWindow(Json.Get(root, "seven_day"), SevenDaySeconds);
+        if (fiveHour is null && sessionListed) fiveHour = new UsageWindow(0, FiveHourSeconds);
         var fableId = LimitIdPrefix + "weekly_scoped_fable";
         if (!seen.Contains(fableId))
         {
