@@ -8,6 +8,8 @@
 
 ### Fixed
 
+- **The Liquid Glass search field stays put.** Tapping Settings' search field made it swing sideways past the screen edge and back as the X split out of it and it rose over the keyboard, and it grew and leaned toward your finger. It now slides up steadily, with only the press light. Liquid Glass, Android.
+- **A mouse, trackpad or stylus lights Liquid Glass.** Hovering over a glass button lights it where the pointer is, as on iPad, and a list row shows a soft highlight; the wheel scrolls. Before, nothing reacted until you clicked. Liquid Glass, Android.
 - **The live monitor's Refresh refreshes.** Tapping Refresh on the live monitor or Now Bar fetched only Codex, and skipped Claude, Cursor and the other providers if their numbers were under five minutes old. It now fetches the provider the monitor shows and says "Refreshing…" until it's done. Android.
 - **Idle Claude plans show their 5-hour limit.** With no Claude session running, Pro and Max showed "No 5-hour limit on this plan" on iPhone, Mac, Windows and Linux. They now show the limit at 0% used, as Android did. iOS, macOS, Windows, Linux.
 - **Codex Go-style plans show on Android.** A plan whose only window is outside the usual 5-hour, weekly or monthly lengths (like a 2-day or 60-day window) showed nothing on Android. It now shows as the weekly or monthly meter, as on the other platforms. Android.
