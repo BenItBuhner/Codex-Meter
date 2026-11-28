@@ -69,7 +69,8 @@ final class ExpressiveRows {
             lp.setMargins(dp(16), dp(20), dp(16), dp(8));
             list.addView(label, lp);
         } else if (list.getChildCount() > 0) {
-            list.addView(new View(this.ctx), new LinearLayout.LayoutParams(-1, dp(14)));
+            // A gap about half a header's, as in the other designs (Liquid Glass 22 against 46)
+            list.addView(new View(this.ctx), new LinearLayout.LayoutParams(-1, dp(24)));
         }
         int cards = section.cards.size();
         int n = section.rows.size();
