@@ -1,0 +1,134 @@
+name: Upgrade from 2.8.0 check
+
+# Installs the last stable release (v2.8.0, built from its tag), signs it in and fills it with
+# usage, history, reset credits and changed settings through its own storage code, then installs
+# this branch over it, opens it like a user would, and fails if anything reads differently or a
+# saved key is gone. Both builds are debug builds signed with the same key, so the in-place
+# install is the same one a user gets. Uploads screenshots and both readings.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [alpha, main]
+    paths: ['.github/workflows/upgrade-check.yml', '.github/upgrade-check/**',
+             'android/app/src/main/java/dev/bennett/codexmeter/*Preferences.java',
+             'android/app/src/main/java/dev/bennett/codexmeter/SecureTokenStore.java',
+             'android/app/src/main/java/dev/bennett/codexmeter/AuthTokens.java',
+             'android/app/src/main/java/dev/bennett/codexmeter/CodexMeterApplication.java',
+             'android/app/src/main/java/dev/bennett/codexmeter/WidgetUpgradeRepair.java',
+             'android/app/src/main/java/dev/bennett/codexmeter/ResetCredits*.java',
+             'android/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java',
+             'android/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java',
+             'android/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java',
+             'android/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java',
+             'android/app/build.gradle.kts']
+
+permissions:
+  contents: read
+
+env:
+  OLD_TAG: v2.8.0
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out the old release
+        run: |
+          git fetch --no-tags origin "refs/tags/$OLD_TAG:refs/tags/$OLD_TAG"
+          git worktree add "$RUNNER_TEMP/old" "$OLD_TAG"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - name: Install Android SDK platforms
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [[ -x "$SDKMANAGER" ]] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "platforms;android-37.0" "platforms;android-37.1" "build-tools;36.0.0"
+
+      - name: Add the debug-only probe to both builds
+        run: |
+          set -euo pipefail
+          # v2.8.0's own debug-only demo page no longer compiled at the tag (its release build
+          # never included it), so the old debug build drops it.
+          rm "$RUNNER_TEMP/old/android/app/src/debug/java/dev/bennett/codexmeter/UsagePaceDemoActivity.java"
+          python3 - "$RUNNER_TEMP/old/android/app/src/debug/AndroidManifest.xml" <<'PY'
+          import re, sys
+          p = sys.argv[1]
+          s = open(p).read()
+          s = re.sub(r'\s*<activity\s+android:name="dev\.bennett\.codexmeter\.UsagePaceDemoActivity"[^>]*/>', '', s)
+          open(p, 'w').write(s)
+          PY
+          for ROOT in "$RUNNER_TEMP/old" "$GITHUB_WORKSPACE"; do
+            DBG="$ROOT/android/app/src/debug"
+            mkdir -p "$DBG/java/dev/bennett/codexmeter"
+            cp .github/upgrade-check/UpgradeProbeActivity.java "$DBG/java/dev/bennett/codexmeter/"
+            python3 - "$DBG/AndroidManifest.xml" <<'PY'
+          import sys
+          p = sys.argv[1]
+          s = open(p).read()
+          s = s.replace('</application>', '<activity android:name="dev.bennett.codexmeter.UpgradeProbeActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay"/>\n    </application>')
+          open(p, 'w').write(s)
+          PY
+          done
+
+      - name: Build v2.8.0 (debug)
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_21_X64"
+          cd "$RUNNER_TEMP/old/android"
+          for i in 1 2 3; do
+            ./gradlew --no-daemon :app:assembleDebug && break
+            [[ $i == 3 ]] && exit 1
+            sleep $((i * 15))
+          done
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/old.apk"
+
+      - name: Build this branch (debug, as the next stable versionCode)
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_25_X64"
+          cd android
+          CODE=$(( $(awk '/versionCode = / { print $3; exit }' app/build.gradle.kts) + 1 ))
+          for i in 1 2 3; do
+            ./gradlew --no-daemon :app:assembleDebug -PdemoVersionCode=$CODE && break
+            [[ $i == 3 ]] && exit 1
+            sleep $((i * 15))
+          done
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/new.apk"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Upgrade on the emulator and compare
+        timeout-minutes: 25
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          OLD_APK: ${{ runner.temp }}/old.apk
+          NEW_APK: ${{ runner.temp }}/new.apk
+          OUT: ${{ github.workspace }}/upgrade-check
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          script: bash .github/upgrade-check/run.sh
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: upgrade-check
+          path: upgrade-check/
+          if-no-files-found: warn
+          retention-days: 14
