@@ -1,5 +1,6 @@
 name: macOS CI
 
+# Touching this file on a pull request runs the full non-release macOS build. Publishing stays on tags.
 on:
   pull_request:
     branches: [main, alpha]
