@@ -41,7 +41,7 @@ public sealed class SettingsPage : PageBase
         var manage = new Button { Content = "Manage providers" };
         AutomationProperties.SetAutomationId(manage, "ManageAccountsButton");
         manage.Click += (_, _) => App.Current?.Window?.Navigate("accounts");
-        var providersCard = Card("Providers", null, "", manage);
+        var providersCard = Card("Providers", null, "\ue77b", manage);
         AutomationProperties.SetAutomationId(providersCard, "ProvidersCard");
         Body.Children.Add(providersCard);
         Body.Children.Add(Card("Priority page", "First in the sidebar: what needs you across every connected service.", "",
@@ -221,7 +221,7 @@ public sealed class SettingsPage : PageBase
         AutomationProperties.SetAutomationId(liveApps, "LiveAppsList");
         BuildLiveApps();
         Body.Children.Add(liveApps);
-        Body.Children.Add(Card("Percentage shown", "Auto shows whichever of the 5-hour and weekly limits has less left.", "",
+        Body.Children.Add(Card("Percentage shown", "Auto shows whichever of the 5-hour and weekly limits has less left.", "\ue9d2",
             Combo("LiveWindowBox", ["Auto", "5-hour usage", "Weekly usage"], (int)s.LiveWindow,
                 i => Update(x => x with { LiveWindow = (LiveWindowChoice)i }))));
         Body.Children.Add(Card("Icon style", "A used-up limit shows the time until it resets.", "",
