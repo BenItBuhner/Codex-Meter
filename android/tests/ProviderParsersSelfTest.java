@@ -237,6 +237,17 @@ public final class ProviderParsersSelfTest {
                 + "1790500000}}}", NOW);
         check(ratios.fiveHour.usedPercent == 40 && ratios.weekly.usedPercent == 10
                 && ratios.weekly.resetAtEpochSeconds == 1_790_500_000L, "Kimi ratio shape");
+        UsageSnapshot over = ProviderUsageParsers.kimi("{\"usages\":{\"limit_5h\":{"
+                + "\"used_ratio\":1.2},\"limit_7d\":{\"used_ratio\":0.01}}}", NOW);
+        check(over.fiveHour.usedPercent == 100 && over.weekly.usedPercent == 1,
+                "a ratio over 1 is over the limit, not 1%");
+        check(ProviderUsageParsers.epochSeconds("2026-12-01T15:30:00")
+                        == ProviderUsageParsers.epochSeconds("2026-12-01T15:30:00Z")
+                        && ProviderUsageParsers.epochSeconds("2026-12-01T15:30:00.123456")
+                        == ProviderUsageParsers.epochSeconds("2026-12-01T15:30:00Z")
+                        && ProviderUsageParsers.epochSeconds("2026-12-01")
+                        == ProviderUsageParsers.epochSeconds("2026-12-01T00:00:00Z"),
+                "a time with no zone keeps its time of day as UTC");
     }
 
     private static void testFactory() {
@@ -499,6 +510,12 @@ public final class ProviderParsersSelfTest {
                 + "\"usageLimitWithPrecision\":201}]}", NOW);
         check(mixed.monthly.usedPercent == 50 && mixed.additionalLimits.size() == 1,
                 "Kiro credits lead even when listed second");
+        UsageSnapshot twoCredits = ProviderUsageParsers.kiro("{\"nextDateReset\":1791000000,"
+                + "\"usageBreakdownList\":[{\"resourceType\":\"CREDIT\",\"currentUsage\":10,"
+                + "\"usageLimit\":100},{\"resourceType\":\"CREDIT\",\"currentUsage\":90,"
+                + "\"usageLimit\":100}]}", NOW);
+        check(twoCredits.monthly.usedPercent == 10,
+                "with two credit entries the first is the monthly meter, as on iOS and Windows");
     }
 
     private static void testOpenRouter() {

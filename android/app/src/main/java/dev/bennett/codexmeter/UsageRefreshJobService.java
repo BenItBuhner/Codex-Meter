@@ -91,9 +91,8 @@ public final class UsageRefreshJobService extends JobService {
                     Context app = UsageRefreshJobService.this.getApplicationContext();
                     // Claude never throws here; it paces itself to avoid its rate limit.
                     if (RefreshScheduler.REASON_USER_REFRESH.equals(this.reason)) {
-                        runUserRefresh(app, this.params.getExtras() == null ? null
-                                : UsageProvider.fromId(this.params.getExtras().getString(
-                                        RefreshScheduler.EXTRA_PROVIDER, "")));
+                        runUserRefresh(app,
+                                RefreshScheduler.userRefreshTargets(this.params.getExtras()));
                         WidgetRenderer.updateAll(app);
                         DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
                                 "refresh_job_succeeded",
@@ -178,10 +177,20 @@ public final class UsageRefreshJobService extends JobService {
     }
 
     /**
-     * The live monitor's Refresh: fetches the provider it shows, whatever the age of its
-     * reading, then puts the button back. Failures are logged and shown where the app shows
-     * that provider's errors; they never count against the background schedule.
+     * A Refresh the user tapped outside the app (the live monitor's or a widget's button):
+     * fetches each provider it shows, whatever the age of its reading, then puts the live
+     * monitor's button back. Failures are logged and shown where the app shows that provider's
+     * errors; they never count against the background schedule, and one failing provider never
+     * stops the rest.
      */
+    static void runUserRefresh(Context app, java.util.List<UsageProvider> targets) {
+        try {
+            for (UsageProvider target : targets) runUserRefresh(app, target);
+        } finally {
+            NowBarManager.refreshFinished(app);
+        }
+    }
+
     private static void runUserRefresh(Context app, UsageProvider target) {
         try {
             if (target == UsageProvider.CODEX) {
@@ -199,8 +208,6 @@ public final class UsageRefreshJobService extends JobService {
                     "provider", target == null ? "" : target.id,
                     "error", e.getClass().getSimpleName());
             if (target == UsageProvider.CODEX) AppPreferences.setLastError(app, safeMessage(e));
-        } finally {
-            NowBarManager.refreshFinished(app);
         }
     }
 

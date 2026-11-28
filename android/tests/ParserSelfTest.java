@@ -19,6 +19,8 @@ import org.json.JSONObject;
 public final class ParserSelfTest {
     public static void main(String[] args) throws Exception {
         testStandardUsage();
+        testSharedCodexFixtures();
+        testGoStyleSingleWindow();
         testMonthlyWindow();
         testWindowIdentification();
         testAdditionalLimits();
@@ -1075,6 +1077,62 @@ public final class ParserSelfTest {
                 "no reset fields means no countdown");
         System.out.println("Spend control: monthly credit limit parses beside the windows and "
                 + "credits, round-trips, tolerates field types, and hides when absent.");
+    }
+
+    /** The Codex fixtures iOS and Windows already run, so all three parsers agree on them. */
+    private static String sharedFixture(String name) throws Exception {
+        return new String(Files.readAllBytes(Paths.get(
+                System.getProperty("codex.fixtures", "tests/fixtures"))
+                .resolve("../../../ios/CodexMeterCore/Tests/CodexMeterCoreTests/Fixtures")
+                .resolve(name + ".json").normalize()), StandardCharsets.UTF_8);
+    }
+
+    private static void testSharedCodexFixtures() throws Exception {
+        long at = 1_900_000_000_000L;
+        UsageSnapshot standard = UsageParser.parse(sharedFixture("usage-standard"), at);
+        check("plus".equals(standard.planType) && standard.allowed && !standard.limitReached,
+                "shared usage-standard: plan and flags");
+        check(standard.fiveHour.usedPercent == 37 && standard.fiveHour.remainingPercent() == 63
+                        && standard.fiveHour.windowSeconds == 18_000L,
+                "shared usage-standard: 5-hour meter");
+        check(standard.weekly.usedPercent == 62 && standard.resetCreditsAvailable == 3,
+                "shared usage-standard: weekly meter and reset credits");
+
+        UsageSnapshot reversed = UsageParser.parse(sharedFixture("usage-reversed"), at);
+        check(reversed.fiveHour.usedPercent == 88 && reversed.weekly.usedPercent == 12,
+                "shared usage-reversed: windows identified by duration, not slot");
+
+        UsageSnapshot additional = UsageParser.parse(sharedFixture("usage-additional"), at);
+        check(additional.fiveHour == null && additional.weekly == null,
+                "shared usage-additional: no main windows");
+        UsageLimit spark = additional.additionalLimits.get(0);
+        check("codex_bengalfox".equals(spark.meteredFeature) && !spark.allowed
+                        && spark.limitReached && spark.primary.usedPercent == 100
+                        && spark.secondary.usedPercent == 0,
+                "shared usage-additional: per-model limit clamps and flags");
+
+        UsageSnapshot precedence = UsageParser.parse(sharedFixture("usage-primary-precedence"), at);
+        check(precedence.fiveHour.usedPercent == 10 && precedence.fiveHour.windowSeconds == 21_600L
+                        && precedence.weekly.usedPercent == 20,
+                "shared usage-primary-precedence: the main rate limit wins");
+        System.out.println("Shared Codex fixtures: Android reads them the same as iOS and Windows.");
+    }
+
+    /** Matches iOS testUnrecognizedSingleWindowStillDisplaysForGoStylePlans. */
+    private static void testGoStyleSingleWindow() throws Exception {
+        UsageSnapshot sixtyDays = UsageParser.parse("{\"plan_type\":\"go\",\"rate_limit\":"
+                + "{\"primary_window\":{\"used_percent\":41,\"limit_window_seconds\":5184000}}}",
+                2_000_000_000_000L);
+        check(sixtyDays.fiveHour == null && sixtyDays.weekly == null
+                        && sixtyDays.monthly != null && sixtyDays.monthly.usedPercent == 41
+                        && sixtyDays.monthly.windowSeconds == 5_184_000L,
+                "a Go plan's single 60-day window shows as the monthly meter");
+        UsageSnapshot twoDays = UsageParser.parse("{\"plan_type\":\"go\",\"rate_limit\":"
+                + "{\"primary_window\":{\"used_percent\":9,\"limit_window_seconds\":172800}}}",
+                2_000_000_000_000L);
+        check(twoDays.weekly != null && twoDays.weekly.usedPercent == 9 && twoDays.fiveHour == null,
+                "a single 2-day window shows as the long meter, not nothing");
+        System.out.println("Go-style plans: a single window outside the usual buckets still shows.");
     }
 
     private static String fixture(String name) throws Exception {

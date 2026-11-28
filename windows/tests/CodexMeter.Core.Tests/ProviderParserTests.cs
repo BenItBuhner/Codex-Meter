@@ -219,6 +219,20 @@ public class ProviderParserTests
         Assert.Equal(40, ratios.FiveHour?.UsedPercent);
         Assert.Equal(10, ratios.Weekly?.UsedPercent);
         Assert.Equal(1_790_500_000, ResetSeconds(ratios.Weekly));
+        // A ratio over 1 is over the limit, not 1%.
+        var over = P.Kimi("""{"usages":{"limit_5h":{"used_ratio":1.2},"limit_7d":{"used_ratio":0.01}}}""", Now);
+        Assert.Equal(100, over.FiveHour?.UsedPercent);
+        Assert.Equal(1, over.Weekly?.UsedPercent);
+    }
+
+    [Fact]
+    public void ZonelessTimesKeepTheirTimeOfDayAsUtc()
+    {
+        Assert.Equal(P.EpochSeconds("2026-12-01T15:30:00Z"), P.EpochSeconds("2026-12-01T15:30:00"));
+        Assert.Equal(P.EpochSeconds("2026-12-01T15:30:00Z"), P.EpochSeconds("2026-12-01T15:30:00.123456"));
+        Assert.Equal(P.EpochSeconds("2026-12-01T00:00:00Z"), P.EpochSeconds("2026-12-01"));
+        var naive = P.Chutes("""{"subscription":true,"monthly_price":20,"four_hour":{"usage":1,"cap":4,"remaining":3,"reset_at":"2026-09-21T16:00:00"}}""", Now);
+        Assert.Equal(P.EpochSeconds("2026-09-21T16:00:00Z"), ResetSeconds(naive.FiveHour));
     }
 
     [Fact]
