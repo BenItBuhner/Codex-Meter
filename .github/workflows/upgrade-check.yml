@@ -112,6 +112,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Upgrade on the emulator and compare
+        timeout-minutes: 25
         uses: reactivecircus/android-emulator-runner@v2
         env:
           OLD_APK: ${{ runner.temp }}/old.apk
