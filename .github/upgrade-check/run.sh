@@ -15,6 +15,20 @@ mkdir -p "$OUT"
 t() { timeout "${T:-60}" "$@"; local rc=$?; [[ $rc == 124 ]] && echo "::warning::timed out: $*"; return $rc; }
 shot() { sleep "${2:-2}"; t adb exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
 probe() { t adb shell am start -n "$PROBE" "$@" >/dev/null; sleep 4; }
+# Runs a probe action and waits (up to 90 s) for the probe's done marker.
+run_action() {
+  local action=$1; shift
+  t adb shell run-as $PKG rm -f "files/probe-$action.done" >/dev/null 2>&1
+  t adb shell am start -n "$PROBE" --es action "$action" "$@" >/dev/null
+  local result=""
+  for _ in $(seq 1 90); do
+    result=$(t adb shell run-as $PKG cat "files/probe-$action.done" 2>/dev/null)
+    [[ -n "$result" ]] && break
+    sleep 1
+  done
+  echo "probe $action: ${result:-no answer}"
+  [[ "$result" == ok ]] || { echo "::error::probe $action did not finish: ${result:-no answer}"; return 1; }
+}
 pull_dump() {
   t adb shell run-as $PKG cat "files/$1.json" > "$OUT/$1.json"
   python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$OUT/$1.json" \
@@ -34,7 +48,7 @@ trap collect EXIT
 echo "== install 2.8.0 and seed it"
 T=180 t adb install "$OLD_APK" || exit 1
 t adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS || true
-probe --es action seed
+run_action seed || exit 1
 t adb shell am force-stop $PKG
 # No network from here on, so nothing the old or new build fetches changes the seeded data.
 t adb shell svc wifi disable || true
@@ -44,7 +58,7 @@ shot 01-v2.8.0-dashboard 4
 probe --es open history
 shot 02-v2.8.0-history
 t adb shell am force-stop $PKG
-probe --es action dump --es out before
+run_action dump --es out before || exit 1
 pull_dump before || exit 1
 t adb shell am force-stop $PKG
 
@@ -64,7 +78,7 @@ shot 06-upgraded-history 3
 probe --es open settings
 shot 07-upgraded-settings 3
 t adb shell am force-stop $PKG
-probe --es action dump --es out after
+run_action dump --es out after || exit 1
 pull_dump after || exit 1
 
 collect

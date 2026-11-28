@@ -36,6 +36,7 @@ public class UpgradeProbeActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         String action = getIntent().getStringExtra("action");
+        String result = "ok";
         try {
             if ("seed".equals(action)) {
                 seed(this);
@@ -53,6 +54,15 @@ public class UpgradeProbeActivity extends Activity {
             }
         } catch (Throwable e) {
             Log.e(TAG, action + " failed", e);
+            result = "failed: " + e;
+        }
+        // The check waits for this file instead of guessing how long the work takes.
+        if (action != null) {
+            try {
+                write(this, "probe-" + action + ".done", result);
+            } catch (Throwable e) {
+                Log.e(TAG, "could not write the done marker", e);
+            }
         }
         finish();
     }
