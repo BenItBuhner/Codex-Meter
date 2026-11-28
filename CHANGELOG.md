@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **More is a list you go into, like on iPhone.** With more providers than the tab bar holds, More no longer opens a sheet. It shows a page listing the other providers; tap one and its page slides in with Back to More. Back, Android's back gesture, an edge swipe or tapping More again returns to the list, and More remembers which provider it showed when you switch tabs and come back. The Duo layout's column gets a Back button for it too. iPhone already used Apple's own More list and now has tests for it. Liquid Glass, Android.
+
 ## 2.9.0-alpha.38 — 2026-11-27
 
 ### Changed

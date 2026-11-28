@@ -404,6 +404,24 @@ final class DemoGalleryTests: XCTestCase {
         _ = app.staticTexts["Weekly"].waitForExistence(timeout: 5)
         UITestSupport.settle(1.0)
         capture("28-copilot-demo-tab")
+
+        // More: with more tabs than the bar holds, the system's More tab is a pushed list; a row
+        // pushes its provider with Back to More (Android's Liquid Glass design does the same).
+        app.terminate()
+        app.launchArguments = ["-ui-testing-demo", "-ui-testing-providers", "codex,claude_code,cursor,copilot,kimi,zai"]
+        app.launch()
+        let more = app.tabBars.buttons["More"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 8))
+        UITestSupport.tap(more)
+        XCTAssertTrue(app.navigationBars["More"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("29-more-list")
+        UITestSupport.tap(app.cells.containing(.staticText, identifier: "Z.ai").firstMatch)
+        XCTAssertTrue(app.navigationBars["Z.ai"].waitForExistence(timeout: 5))
+        UITestSupport.settle(1.0)
+        capture("30-more-pushed")
+        tapBack(in: app, from: "Z.ai", to: "More")
+        capture("31-more-back")
     }
 
     private func capture(_ name: String) {
