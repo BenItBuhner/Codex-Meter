@@ -147,6 +147,11 @@
 			path = "CodexMeterMacUITests";
 			sourceTree = "<group>";
 		};
+		AA0000000000000000000027 /* CodexMeterMacTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "CodexMeterMacTests";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -189,6 +194,7 @@
 				AA0000000000000000000020 /* CodexMeterMac */,
 				AA0000000000000000000024 /* CodexMeterMacWidgets */,
 				AA0000000000000000000021 /* Shared */,
+				AA0000000000000000000027 /* CodexMeterMacTests */,
 				AA0000000000000000000026 /* CodexMeterMacUITests */,
 				AA0000000000000000000004 /* iOS sources */,
 				AA0000000000000000000003 /* Products */,
@@ -286,6 +292,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AA0000000000000000000025,
+				AA0000000000000000000027,
 			);
 			name = CodexMeterMacTests;
 			packageProductDependencies = (

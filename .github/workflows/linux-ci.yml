@@ -75,7 +75,12 @@ jobs:
 
       - name: Unit tests
         if: steps.checks.outputs.full == 'true'
-        run: dotnet test tests/CodexMeter.Linux.Tests --logger "console;verbosity=normal"
+        env:
+          GSK_RENDERER: cairo
+          GDK_DEBUG: gl-disable
+        run: |
+          xvfb-run -a -s "-screen 0 1400x1000x24" dbus-run-session -- \
+            dotnet test tests/CodexMeter.Linux.Tests --logger "console;verbosity=normal"
 
       - name: Validate desktop entry and AppStream metadata
         run: |

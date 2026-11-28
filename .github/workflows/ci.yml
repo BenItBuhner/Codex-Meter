@@ -123,7 +123,7 @@ jobs:
       - name: Robolectric tests, compile with -Werror, and lint with warnings as errors
         run: |
           ./gradlew --console=plain \
-            :app:testDebugUnitTest \
+            :app:testDebugUnitTest :wear:testDebugUnitTest \
             :app:compileReleaseJavaWithJavac :wear:compileReleaseJavaWithJavac \
             :app:lintRelease :wear:lintRelease :wear:minifyReleaseWithR8
       - name: Upload lint and test reports
@@ -390,10 +390,11 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: Install GTK 4 and libadwaita
+      - name: Install GTK 4, libadwaita and a virtual display
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libgtk-4-dev libadwaita-1-dev libsecret-1-0
+          sudo apt-get install -y --no-install-recommends libgtk-4-dev libadwaita-1-dev libsecret-1-0 \
+            adwaita-icon-theme xvfb xauth dbus dbus-x11
       - name: Build with warnings as errors
         run: |
           dotnet build windows/tests/CodexMeter.Core.Tests -warnaserror
@@ -406,8 +407,15 @@ jobs:
           done
       - name: Core tests
         run: dotnet test windows/tests/CodexMeter.Core.Tests --no-build
+      # The page tests build the real GTK windows (UiHost.cs), so they need a display; cairo
+      # drawing and no GL, as in the Linux budgets below.
       - name: Linux tests
-        run: dotnet test linux/tests/CodexMeter.Linux.Tests --no-build
+        env:
+          GSK_RENDERER: cairo
+          GDK_DEBUG: gl-disable
+        run: |
+          xvfb-run -a -s "-screen 0 1400x1000x24" dbus-run-session -- \
+            dotnet test linux/tests/CodexMeter.Linux.Tests --no-build
 
   windows-app:
     name: Windows app build
@@ -427,9 +435,9 @@ jobs:
       - name: Build with warnings as errors
         run: dotnet build src/CodexMeter.App/CodexMeter.App.csproj -c Release -r win-x64 -p:Platform=x64 -warnaserror
 
-  # Four macOS jobs side by side (the account gets five macOS runners): lint, package tests and the
+  # Five macOS jobs side by side (the account gets five macOS runners): lint, package tests and the
   # Release iPhone build; the iOS unit test build and the Mac budgets; the iOS unit tests; the
-  # iPhone budgets. Every build is for the runner's own architecture only. No simulator boots
+  # iPhone budgets; and the Mac app unit tests. Every build is for the runner's own architecture only. No simulator boots
   # alongside a build: on these 3-core runners that made the build 2-2.5x slower, and lint or
   # tests next to a boot ran ~15x slower. So the two simulator jobs boot from their first minute
   # and take what they need from the build jobs as artifacts (.github/scripts/wait-for-artifact.sh).
@@ -513,6 +521,28 @@ jobs:
       - name: Measure Mac start-up and memory
         run: macos/ci/perf-budgets.sh mac "$RUNNER_TEMP/mac/Build/Products/Release/Codex Meter.app"
 
+
+  # The Mac app's own unit tests (macos/CodexMeterMacTests: menu bar rules, provider status,
+  # updater, refresh timer) and the shared app tests, built for the Mac and hosted by the Debug
+  # app. Its own runner, so the Mac budgets next door stay quiet and the gate's wall time stays put.
+  apple-mac-tests:
+    name: Mac app unit tests
+    needs: changes
+    if: needs.changes.outputs.apple == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      SIGNING_ARGS: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= CODE_SIGN_ENTITLEMENTS= PROVISIONING_PROFILE_SPECIFIER= ENABLE_HARDENED_RUNTIME=NO
+    steps:
+      - uses: actions/checkout@v7
+      - name: Mac app unit tests
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          xcodebuild test -project macos/CodexMeterMac.xcodeproj -scheme CodexMeterMac \
+            -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/mac-tests" \
+            -only-testing:CodexMeterMacTests \
+            ONLY_ACTIVE_ARCH=YES COMPILER_INDEX_STORE_ENABLE=NO $SIGNING_ARGS -quiet
 
   apple:
     name: iOS unit tests
@@ -679,7 +709,7 @@ jobs:
     name: CI gate
     if: always()
     needs: [changes, android, performance, shrunk-smoke, payload, desktop, windows-app, apple-core,
-            apple-mac, apple, linux-performance, windows-performance, apple-performance]
+            apple-mac, apple-mac-tests, apple, linux-performance, windows-performance, apple-performance]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -699,7 +729,7 @@ jobs:
               .changes.outputs as $on
               | {android: ["android"], performance: ["android"], "shrunk-smoke": ["android"],
                  desktop: ["windows", "linux"], "windows-app": ["windows"], "windows-performance": ["windows"],
-                 "linux-performance": ["linux"], "apple-core": ["apple"], "apple-mac": ["apple"], apple: ["apple"],
+                 "linux-performance": ["linux"], "apple-core": ["apple"], "apple-mac": ["apple"], "apple-mac-tests": ["apple"], apple: ["apple"],
                  "apple-performance": ["apple"]} as $areas
               | to_entries[] | .key as $job
               | select($areas[$job] != null)
@@ -711,7 +741,7 @@ jobs:
           # Every job the gate waits for must be in the area map above.
           unmapped="$(echo "$RESULTS" | jq -r '
               ["changes", "payload", "android", "performance", "shrunk-smoke", "desktop", "windows-app",
-               "windows-performance", "linux-performance", "apple-core", "apple-mac", "apple", "apple-performance"] as $known
+               "windows-performance", "linux-performance", "apple-core", "apple-mac", "apple-mac-tests", "apple", "apple-performance"] as $known
               | keys[] | select(. as $k | $known | index($k) | not)')"
           if [[ -n "$unmapped" ]]; then
             echo "::error::Add these jobs to the gate's area map: $unmapped"
