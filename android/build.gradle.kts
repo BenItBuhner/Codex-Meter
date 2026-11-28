@@ -1,6 +1,6 @@
 plugins {
-    id("com.android.application") version "9.5.1" apply false
-    id("com.android.library") version "9.5.1" apply false
+    id("com.android.application") version "9.5.3" apply false
+    id("com.android.library") version "9.5.3" apply false
 }
 
 // Every Java warning is an error. A deprecated call kept for older Android versions is marked
