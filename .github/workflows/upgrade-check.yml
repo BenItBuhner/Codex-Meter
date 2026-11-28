@@ -57,6 +57,16 @@ jobs:
       - name: Add the debug-only probe to both builds
         run: |
           set -euo pipefail
+          # v2.8.0's own debug-only demo page no longer compiled at the tag (its release build
+          # never included it), so the old debug build drops it.
+          rm "$RUNNER_TEMP/old/android/app/src/debug/java/dev/bennett/codexmeter/UsagePaceDemoActivity.java"
+          python3 - "$RUNNER_TEMP/old/android/app/src/debug/AndroidManifest.xml" <<'PY'
+          import re, sys
+          p = sys.argv[1]
+          s = open(p).read()
+          s = re.sub(r'\s*<activity\s+android:name="dev\.bennett\.codexmeter\.UsagePaceDemoActivity"[^>]*/>', '', s)
+          open(p, 'w').write(s)
+          PY
           for ROOT in "$RUNNER_TEMP/old" "$GITHUB_WORKSPACE"; do
             DBG="$ROOT/android/app/src/debug"
             mkdir -p "$DBG/java/dev/bennett/codexmeter"
