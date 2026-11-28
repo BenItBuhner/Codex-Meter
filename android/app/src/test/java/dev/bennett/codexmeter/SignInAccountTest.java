@@ -130,7 +130,9 @@ public final class SignInAccountTest {
     private void seed(UsageProvider provider) {
         DemoMode.seed(app, provider, System.currentTimeMillis());
         ProviderPreferences.setEmail(app, provider, "old@example.com");
-        assertFalse(ProviderPreferences.loadUsageHistory(app, provider,
-                UsageHistory.MONTHLY).samples.isEmpty());
+        // The demo seeds Cursor's monthly meter and Codex's 5-hour and weekly ones.
+        String kind = provider == UsageProvider.CURSOR ? UsageHistory.MONTHLY
+                : UsageHistory.FIVE_HOUR;
+        assertFalse(ProviderPreferences.loadUsageHistory(app, provider, kind).samples.isEmpty());
     }
 }
