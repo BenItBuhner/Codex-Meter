@@ -153,7 +153,9 @@ final class GlassSettings {
             EditTextPreference field = (EditTextPreference) pref;
             r = new Row(Row.Kind.FIELD, key);
             r.value = field.getText() == null ? "" : field.getText();
-            r.hint = text(pref.getTitle());
+            // The label already names the field, so the placeholder says what it is for
+            CharSequence message = field.getDialogMessage();
+            r.hint = text(message != null && message.length() > 0 ? message : pref.getTitle());
             r.onText = value -> {
                 if (field.callChangeListener(value)) {
                     field.setText(value);
